@@ -1,48 +1,49 @@
 # MM Figma Builder
 
-用 Figma **Plugin API**（免费、无调用限额）让 AI / 命令行直接读写 Figma 文件的本地桥插件，替代官方 Figma MCP 的写入通道（官方 MCP 在 Starter 计划下每月仅 20 次调用）。
+A local bridge plugin that lets an AI agent (or any CLI) read and write Figma files through the **Figma Plugin API** — free and without call quotas — replacing the write path of the official Figma MCP server (which allows only 20 tool calls per month on the Starter plan).
 
-## 架构
+## Architecture
 
 ```
-Claude Code / CLI                bridge-server.mjs              Figma 桌面端插件
-  node run.mjs xx.js  ── POST /run ──▶  队列  ◀── GET /pull（500ms 轮询）── ui.html
-  轮询 GET /result    ◀── 存储  ◀────────── POST /result ─────────── code.js 执行脚本
+Claude Code / CLI                bridge-server.mjs               Figma desktop plugin
+  node run.mjs xx.js  ── POST /run ──▶  queue  ◀── GET /pull (500ms poll) ── ui.html
+  poll GET /result    ◀── store  ◀──────────── POST /result ──────────── code.js evals script
 ```
 
-- `bridge-server.mjs` — 零依赖 Node 服务，只绑定 127.0.0.1:3055
-- `code.js` + `ui.html` — 插件本体：UI 轮询桥服务，主线程用 AsyncFunction 执行收到的脚本
-- `run.mjs` — 命令行提交脚本文件并等待结果；结果里的 `{$png: base64}` 自动存为 /tmp 下的 PNG 并替换为路径
-- `scripts/` — 历史/示例脚本（`mm-test-oneshot.js` 是最初的一次性补建版本，已完成使命）
+- `bridge-server.mjs` — zero-dependency Node server, bound to 127.0.0.1:3055 only
+- `code.js` + `ui.html` — the plugin: the UI polls the bridge, the main thread executes received scripts via AsyncFunction
+- `run.mjs` — CLI: submits a script file and waits for the result; any `{$png: base64}` value in the result is saved as a PNG under /tmp and replaced by its file path
+- `scripts/` — historical / example scripts (`mm-test-oneshot.js` was the original standalone one-shot build, kept for reference)
 
-## 使用
+## Usage
 
 ```bash
-# 1. 启动桥服务（常驻）
+# 1. Start the bridge server (keep it running)
 node bridge-server.mjs
 
-# 2. Figma 桌面端：Plugins → Development → Import plugin from manifest…（首次）
-#    之后每个工作会话运行一次 "MM Figma Builder"，面板显示「已连接 · 空闲」即可
-#    ⚠️ 插件面板保持打开，关掉即断桥
+# 2. Figma desktop: Plugins → Development → Import plugin from manifest… (first time only)
+#    Then run "MM Figma Builder" once per working session; the panel should
+#    show "Connected · idle".
+#    ⚠️ Keep the plugin panel open — closing it disconnects the bridge.
 
-# 3. 提交脚本
-node run.mjs my-script.js            # 默认 120s 超时
+# 3. Submit scripts
+node run.mjs my-script.js            # default 120s timeout
 node run.mjs my-script.js --timeout 300
 ```
 
-## 脚本约定（与官方 MCP use_figma 一致）
+## Script contract (same conventions as the official MCP `use_figma`)
 
-- 顶层可用 `await`，用 `return` 返回 JSON 可序列化数据
-- 直接使用 `figma` 全局对象（完整 Plugin API）
-- 额外注入 `helpers`：
-  - `helpers.hex("#RRGGBB")` → Figma 颜色对象（0-1 范围）
-  - `helpers.S("#RRGGBB", opacity?)` → SOLID fills 数组
-  - `helpers.AL(dir, opts)` → 建好 auto-layout 的 Frame（原生 API 无 createAutoLayout）
-  - `helpers.T(chars, opts)` → 文本节点（**字体需先 loadFontAsync**）
-  - `helpers.SVG(markup, w, h)` → 从 SVG 建矢量
-  - `await helpers.shot(node, scale?)` → 节点截图，经 run.mjs 落盘为 PNG 路径
+- Plain JavaScript; top-level `await` allowed; `return` a JSON-serializable value
+- The full Plugin API is available through the `figma` global
+- A `helpers` object is injected:
+  - `helpers.hex("#RRGGBB")` → Figma color object (0–1 range)
+  - `helpers.S("#RRGGBB", opacity?)` → SOLID fills array
+  - `helpers.AL(dir, opts)` → frame with auto-layout preconfigured (the vanilla API has no `createAutoLayout`)
+  - `helpers.T(chars, opts)` → text node (**load the font with `loadFontAsync` first**)
+  - `helpers.SVG(markup, w, h)` → vector node from SVG markup
+  - `await helpers.shot(node, scale?)` → node screenshot; `run.mjs` saves it to disk and returns the PNG path
 
-示例：
+Example:
 
 ```js
 await figma.loadFontAsync({ family: "Inter", style: "Bold" });
@@ -53,18 +54,18 @@ figma.currentPage.appendChild(card);
 return { id: card.id, preview: await shot(card, 2) };
 ```
 
-## 安全
+## Security
 
-脚本在插件沙箱内 eval，桥服务只监听 127.0.0.1 且无鉴权——**不要**把端口暴露到局域网/公网，只在自己信任的会话里往桥里投递脚本。
+Scripts are eval'ed inside the Figma plugin sandbox, and the bridge server listens on 127.0.0.1 with no authentication. **Never** expose the port beyond localhost, and only submit scripts from sessions you trust.
 
-## 已知边界
+## Known limitations
 
-- 插件必须在 Figma 桌面端保持打开才能执行；操作的是**当前打开的文件**
-- 官方 MCP 独有的云端能力不在此列：`search_design_system`（跨库搜索）、Code Connect 映射、`create_new_file`——这些仍走官方 MCP（读操作限额独立于写入，且 `create_new_file`/`whoami` 免限额）
-- 结果必须 JSON 可序列化（节点请返回 id，不要返回节点对象）
+- The plugin must stay open in Figma desktop for scripts to run; it operates on the **currently open file**
+- Cloud-side features of the official MCP are out of scope: `search_design_system` (cross-library search), Code Connect mappings, and `create_new_file` — keep using the official MCP for those (`create_new_file` and `whoami` are exempt from its rate limit)
+- Results must be JSON-serializable (return node IDs, not node objects)
 
 ## Roadmap
 
-- [ ] TypeScript + `@figma/plugin-typings` 构建链
-- [ ] WebSocket 替代轮询；多文件/多任务路由
-- [ ] Community 发布前补 `networkAccess` 声明与鉴权 token
+- [ ] TypeScript + `@figma/plugin-typings` build chain
+- [ ] WebSocket instead of polling; multi-file / multi-job routing
+- [ ] Before Community publishing: add a `networkAccess` declaration and an auth token

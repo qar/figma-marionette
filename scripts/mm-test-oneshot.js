@@ -68,11 +68,11 @@
     ]);
 
     const page = await figma.getNodeByIdAsync("0:1");
-    if (!page || page.type !== "PAGE") throw new Error("页面 0:1 不存在，请在 MM-Test 文件中运行");
+    if (!page || page.type !== "PAGE") throw new Error("Page 0:1 not found — run this inside the MM-Test file");
     const settingsScr = await figma.getNodeByIdAsync("20:136");
     const rowComp = await figma.getNodeByIdAsync("7:13");
     if (!settingsScr || !rowComp || rowComp.type !== "COMPONENT") {
-      throw new Error("找不到设置屏/SettingsRow 组件，请确认这是 MM-Test 文件");
+      throw new Error("Settings screen / SettingsRow component not found — is this the MM-Test file?");
     }
 
     // ---------- Part A: remaining Settings groups ----------
@@ -289,9 +289,9 @@
       figma.viewport.scrollAndZoomIntoView([scr]);
     } catch (e) { /* page switch is best-effort */ }
 
-    figma.notify(`完成：主页已重建，设置组新增 ${settingsAdded} 行`);
+    figma.notify(`Done: Home rebuilt, ${settingsAdded} settings rows added`);
   } catch (e) {
-    figma.notify("失败：" + e.message, { error: true });
+    figma.notify("Failed: " + e.message, { error: true });
   }
   figma.closePlugin();
 })();
