@@ -18,18 +18,29 @@ Claude Code / CLI                bridge-server.mjs               Figma desktop p
 ## Usage
 
 ```bash
-# 1. Start the bridge server (keep it running)
-node bridge-server.mjs
-
-# 2. Figma desktop: Plugins → Development → Import plugin from manifest… (first time only)
+# 1. Figma desktop: Plugins → Development → Import plugin from manifest… (first time only)
 #    Then run "MM Figma Builder" once per working session; the panel should
 #    show "Connected · idle".
 #    ⚠️ Keep the plugin panel open — closing it disconnects the bridge.
 
-# 3. Submit scripts
+# 2. Submit scripts. run.mjs starts bridge-server.mjs automatically (detached)
+#    if nothing is listening on the port, so there is no separate start step.
 node run.mjs my-script.js            # default 120s timeout
 node run.mjs my-script.js --timeout 300
+node run.mjs my-script.js --no-spawn # fail instead of auto-starting the server
+
+# Optional: run the server in the foreground yourself (e.g. to watch its log)
+node bridge-server.mjs
 ```
+
+Server logs from an auto-started instance go to `/tmp/figma-bridge-server.log`.
+
+## Claude Code integration
+
+A user-level skill at `~/.claude/skills/figma-bridge/SKILL.md` documents this
+workflow so any Claude Code session picks it up automatically — no MCP server
+to install. The skill covers the script contract, the font/visibility gotchas,
+and which operations still need the official Figma MCP.
 
 ## Script contract (same conventions as the official MCP `use_figma`)
 
