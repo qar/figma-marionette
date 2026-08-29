@@ -37,10 +37,17 @@ Server logs from an auto-started instance go to `/tmp/figma-bridge-server.log`.
 
 ## Claude Code integration
 
-A user-level skill at `~/.claude/skills/figma-bridge/SKILL.md` documents this
-workflow so any Claude Code session picks it up automatically — no MCP server
-to install. The skill covers the script contract, the font/visibility gotchas,
-and which operations still need the official Figma MCP.
+`claude-skill.md` in this repo is a Claude Code skill describing the workflow.
+Install it once with:
+
+```bash
+mkdir -p ~/.claude/skills/figma-bridge
+cp claude-skill.md ~/.claude/skills/figma-bridge/SKILL.md
+```
+
+Any Claude Code session then picks it up automatically — there is no MCP server
+to install. The skill covers the script contract, the font and node-visibility
+gotchas, and which operations still need the official Figma MCP.
 
 ## Script contract (same conventions as the official MCP `use_figma`)
 
