@@ -1,4 +1,4 @@
-// MM Figma Builder — bridge mode.
+// Figma Agent Bridge — plugin side.
 // Keeps polling a local bridge server (via ui.html) and executes received
 // scripts against the Figma Plugin API. This replaces the official Figma MCP
 // write path (use_figma) with an unlimited local channel.

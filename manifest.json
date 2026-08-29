@@ -1,5 +1,5 @@
 {
-  "name": "MM Figma Builder",
+  "name": "Figma Agent Bridge",
   "id": "9999000000000001",
   "api": "1.0.0",
   "main": "code.js",

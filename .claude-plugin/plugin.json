@@ -1,0 +1,13 @@
+{
+  "name": "figma-agent-bridge",
+  "description": "Unmetered read/write access to Figma from Claude Code, via a self-hosted local bridge plugin instead of the rate-limited official Figma MCP server.",
+  "version": "0.1.0",
+  "author": {
+    "name": "qar",
+    "url": "https://github.com/qar"
+  },
+  "homepage": "https://github.com/qar/figma-agent-bridge",
+  "repository": "https://github.com/qar/figma-agent-bridge",
+  "license": "MIT",
+  "keywords": ["figma", "design", "plugin-api", "bridge", "design-to-code"]
+}

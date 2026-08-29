@@ -7,20 +7,19 @@ description: Read and write Figma files with unlimited local script execution, v
 
 Executes arbitrary Plugin API scripts against the Figma file the user currently has open. Free, unmetered, and it round-trips screenshots — use it for **all** Figma canvas work.
 
-Repo: `/Users/qiaoanran/projects/project-e/figma-mm-builder` (github.com/qar/figma-agent-bridge, work on `dev`).
-
 ## Run a script
 
 ```bash
+BRIDGE="${CLAUDE_PLUGIN_ROOT:-__BRIDGE_HOME__}"
 cat > /tmp/my-script.js <<'EOF'
 return { pages: figma.root.children.map(p => p.name) };
 EOF
-node /Users/qiaoanran/projects/project-e/figma-mm-builder/run.mjs /tmp/my-script.js --timeout 90
+node "$BRIDGE/run.mjs" /tmp/my-script.js --timeout 90
 ```
 
 `run.mjs` starts the bridge server itself if it is not running — never ask the user to start it. The result JSON prints to stdout.
 
-**The one thing only the user can do**: keep the *MM Figma Builder* plugin open in Figma desktop (Plugins → Development → MM Figma Builder), panel showing "Connected · idle". If a run ends in `timeout after Ns — is the plugin open in Figma?`, ask them to (re)open it. The plugin polls every 500ms, so it reconnects on its own once running.
+**The one thing only the user can do**: keep the *Figma Agent Bridge* plugin open in Figma desktop (Plugins → Development → Figma Agent Bridge), panel showing "Connected · idle". If a run ends in `timeout after Ns — is the plugin open in Figma?`, ask them to (re)open it; the plugin polls every 500ms and reconnects on its own. If they have never imported it, the manifest to import is `$BRIDGE/manifest.json` (Plugins → Development → Import plugin from manifest…).
 
 ## Script contract
 

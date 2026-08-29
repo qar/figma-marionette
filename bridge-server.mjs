@@ -1,5 +1,5 @@
 // Local bridge server between a CLI (Claude Code / any tool) and the
-// MM Figma Builder plugin running inside Figma desktop.
+// Figma Agent Bridge plugin running inside Figma desktop.
 //
 //   CLI     POST /run     {code}          -> {id}
 //   plugin  GET  /pull                    -> {job: {id, code} | null}

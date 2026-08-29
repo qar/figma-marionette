@@ -1,67 +1,73 @@
-# MM Figma Builder
+# Figma Agent Bridge
 
-A local bridge plugin that lets an AI agent (or any CLI) read and write Figma files through the **Figma Plugin API** — free and without call quotas — replacing the write path of the official Figma MCP server (which allows only 20 tool calls per month on the Starter plan).
+Unmetered read/write access to Figma from an AI agent, through the **Figma Plugin API** — a self-hosted replacement for the write path of the official Figma MCP server, which allows only 20 tool calls per month on the Starter plan.
+
+A local server queues scripts; a Figma plugin polls it and executes them against the file you have open, returning JSON results and screenshots.
+
+## Install
+
+### As a Claude Code plugin (recommended)
+
+```
+/plugin marketplace add qar/figma-agent-bridge
+/plugin install figma-agent-bridge
+```
+
+This installs the `figma-bridge` skill, so Claude reaches for the bridge automatically whenever a task touches Figma. Then import the Figma-side plugin once (see below).
+
+### Manually (any agent, or Claude Code without the plugin system)
+
+```bash
+git clone https://github.com/qar/figma-agent-bridge.git
+cd figma-agent-bridge
+./install.sh              # → ~/.claude/skills/figma-bridge
+./install.sh --project    # → ./.claude/skills/figma-bridge
+```
+
+`install.sh` bakes the checkout's absolute path into the installed skill, so the agent can find `run.mjs` without any environment variable.
+
+### Figma side (required either way, once)
+
+In **Figma desktop**: Plugins → Development → Import plugin from manifest… → pick this repo's `manifest.json`. Run **Figma Agent Bridge** once per working session and leave the panel open; it should read "Connected · idle".
+
+Installed via the Claude plugin system, the repo lives under `~/.claude/plugins/cache/` — ask Claude for the exact `manifest.json` path.
 
 ## Architecture
 
 ```
-Claude Code / CLI                bridge-server.mjs               Figma desktop plugin
+agent / CLI                    bridge-server.mjs               Figma desktop plugin
   node run.mjs xx.js  ── POST /run ──▶  queue  ◀── GET /pull (500ms poll) ── ui.html
   poll GET /result    ◀── store  ◀──────────── POST /result ──────────── code.js evals script
 ```
 
 - `bridge-server.mjs` — zero-dependency Node server, bound to 127.0.0.1:3055 only
 - `code.js` + `ui.html` — the plugin: the UI polls the bridge, the main thread executes received scripts via AsyncFunction
-- `run.mjs` — CLI: submits a script file and waits for the result; any `{$png: base64}` value in the result is saved as a PNG under /tmp and replaced by its file path
-- `scripts/` — historical / example scripts (`mm-test-oneshot.js` was the original standalone one-shot build, kept for reference)
+- `run.mjs` — CLI: submits a script file and waits for the result; auto-starts the server; saves any returned PNG to disk
+- `skills/figma-bridge/SKILL.md` — the agent-facing usage guide
+- `scripts/` — example scripts
 
 ## Usage
 
 ```bash
-# 1. Figma desktop: Plugins → Development → Import plugin from manifest… (first time only)
-#    Then run "MM Figma Builder" once per working session; the panel should
-#    show "Connected · idle".
-#    ⚠️ Keep the plugin panel open — closing it disconnects the bridge.
-
-# 2. Submit scripts. run.mjs starts bridge-server.mjs automatically (detached)
-#    if nothing is listening on the port, so there is no separate start step.
 node run.mjs my-script.js            # default 120s timeout
 node run.mjs my-script.js --timeout 300
 node run.mjs my-script.js --no-spawn # fail instead of auto-starting the server
-
-# Optional: run the server in the foreground yourself (e.g. to watch its log)
-node bridge-server.mjs
 ```
 
-Server logs from an auto-started instance go to `/tmp/figma-bridge-server.log`.
+`run.mjs` starts `bridge-server.mjs` detached if nothing is listening, so there is no separate start step. Logs from an auto-started instance go to `/tmp/figma-bridge-server.log`. Override the port with `FIGMA_BRIDGE_PORT`.
 
-## Claude Code integration
+## Script contract
 
-`claude-skill.md` in this repo is a Claude Code skill describing the workflow.
-Install it once with:
+Plain JavaScript; top-level `await` allowed; `return` a JSON-serializable value. The full Plugin API is available through the `figma` global, plus an injected `helpers` object:
 
-```bash
-mkdir -p ~/.claude/skills/figma-bridge
-cp claude-skill.md ~/.claude/skills/figma-bridge/SKILL.md
-```
-
-Any Claude Code session then picks it up automatically — there is no MCP server
-to install. The skill covers the script contract, the font and node-visibility
-gotchas, and which operations still need the official Figma MCP.
-
-## Script contract (same conventions as the official MCP `use_figma`)
-
-- Plain JavaScript; top-level `await` allowed; `return` a JSON-serializable value
-- The full Plugin API is available through the `figma` global
-- A `helpers` object is injected:
-  - `helpers.hex("#RRGGBB")` → Figma color object (0–1 range)
-  - `helpers.S("#RRGGBB", opacity?)` → SOLID fills array
-  - `helpers.AL(dir, opts)` → frame with auto-layout preconfigured (the vanilla API has no `createAutoLayout`)
-  - `helpers.T(chars, opts)` → text node (**load the font with `loadFontAsync` first**)
-  - `helpers.SVG(markup, w, h)` → vector node from SVG markup
-  - `await helpers.shot(node, scale?)` → node screenshot; `run.mjs` saves it to disk and returns the PNG path
-
-Example:
+| Helper | Purpose |
+|---|---|
+| `helpers.hex("#RRGGBB")` | Figma color object (0–1 range) |
+| `helpers.S("#RRGGBB", opacity?)` | SOLID fills array |
+| `helpers.AL(dir, opts)` | frame with auto-layout preconfigured (the vanilla API has no `createAutoLayout`) |
+| `helpers.T(chars, opts)` | text node — load the font with `loadFontAsync` first |
+| `helpers.SVG(markup, w, h)` | vector node from SVG markup |
+| `await helpers.shot(node, scale?)` | node screenshot; `run.mjs` saves it and returns the PNG path |
 
 ```js
 await figma.loadFontAsync({ family: "Inter", style: "Bold" });
@@ -78,12 +84,16 @@ Scripts are eval'ed inside the Figma plugin sandbox, and the bridge server liste
 
 ## Known limitations
 
-- The plugin must stay open in Figma desktop for scripts to run; it operates on the **currently open file**
-- Cloud-side features of the official MCP are out of scope: `search_design_system` (cross-library search), Code Connect mappings, and `create_new_file` — keep using the official MCP for those (`create_new_file` and `whoami` are exempt from its rate limit)
-- Results must be JSON-serializable (return node IDs, not node objects)
+- The plugin must stay open in Figma desktop; it operates on the **currently open file**
+- Cloud-side features of the official MCP are out of scope: `search_design_system`, `get_libraries`, Code Connect, `create_new_file` (the last of those is exempt from the MCP rate limit anyway)
+- Results must be JSON-serializable — return node IDs, not node objects
 
 ## Roadmap
 
 - [ ] TypeScript + `@figma/plugin-typings` build chain
 - [ ] WebSocket instead of polling; multi-file / multi-job routing
-- [ ] Before Community publishing: add a `networkAccess` declaration and an auth token
+- [ ] Before Figma Community publishing: add a `networkAccess` declaration and an auth token
+
+## License
+
+MIT

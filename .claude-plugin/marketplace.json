@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "figma-agent-bridge",
+  "description": "Unmetered Figma canvas access for Claude Code.",
+  "owner": {
+    "name": "qar",
+    "url": "https://github.com/qar"
+  },
+  "plugins": [
+    {
+      "name": "figma-agent-bridge",
+      "description": "Read and write Figma files with unlimited local script execution — a self-hosted alternative to the rate-limited official Figma MCP write path.",
+      "source": "./",
+      "category": "design",
+      "tags": ["figma", "design", "plugin-api", "bridge"]
+    }
+  ]
+}
