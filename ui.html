@@ -1,0 +1,55 @@
+<style>
+  body { font: 12px/1.5 -apple-system, "PingFang SC", sans-serif; margin: 10px 12px; color: #202622; }
+  #state { font-weight: 600; }
+  #detail { color: #6F7A74; word-break: break-all; }
+  .ok { color: #047857; }
+  .off { color: #DC2626; }
+</style>
+<div>MM Figma Builder · Bridge</div>
+<div id="state" class="off">连接中…</div>
+<div id="detail">桥服务 http://127.0.0.1:3055</div>
+<script>
+  const SERVER = "http://127.0.0.1:3055";
+  let busy = false;
+  let done = 0;
+  const stateEl = document.getElementById("state");
+  const detailEl = document.getElementById("detail");
+  const setState = (ok, text, detail) => {
+    stateEl.className = ok ? "ok" : "off";
+    stateEl.textContent = text;
+    if (detail !== undefined) detailEl.textContent = detail;
+  };
+
+  async function tick() {
+    if (busy) return;
+    try {
+      const r = await fetch(SERVER + "/pull");
+      const j = await r.json();
+      if (j.job) {
+        busy = true;
+        setState(true, "执行中…", "job " + j.job.id.slice(0, 8));
+        parent.postMessage({ pluginMessage: { type: "run", id: j.job.id, code: j.job.code } }, "*");
+      } else {
+        setState(true, "已连接 · 空闲", "已完成 " + done + " 个脚本");
+      }
+    } catch (e) {
+      setState(false, "等不到桥服务", "请先运行 node bridge-server.mjs");
+    }
+  }
+
+  onmessage = async (e) => {
+    const m = e.data.pluginMessage;
+    if (!m || m.type !== "result") return;
+    try {
+      await fetch(SERVER + "/result", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(m),
+      });
+    } catch (_) { /* server gone; result is dropped, CLI will time out */ }
+    busy = false;
+    done++;
+  };
+
+  setInterval(tick, 500);
+</script>
