@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pull Figma's strings from your AI agent</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+  :root {
+    --stage: #141216; --stage-2: #1C191F; --stage-ink: #F2ECE2; --stage-muted: #A39BA6; --stage-line: #2C2830;
+    --paper: #F6F1E9; --card: #FFFDF9; --ink: #1C1A1F; --muted: #6B6570; --line: #E4DCCF; --soft: #EFE8DC;
+    --accent: #C2382E; --accent-soft: #F6DEDA; --ok: #2F7D4F;
+    --code-bg: #1C1A20; --code-ink: #EDE6DC; --code-muted: #8E8792; --code-key: #E8A07A; --code-str: #9BCB8E;
+    --serif: "Instrument Serif", ui-serif, Georgia, serif;
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #19171C; --card: #211E25; --ink: #EEE8E0; --muted: #A29AA5; --line: #322D37; --soft: #29252D;
+      --accent: #E8655A; --accent-soft: #3A2224; --ok: #4CC38A;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 400 17px/1.6 var(--sans); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  a { color: inherit; }
+  code, pre { font-family: var(--mono); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  /* nav */
+  .nav { position: absolute; top: 0; left: 0; right: 0; z-index: 5; }
+  .nav .wrap { display: flex; align-items: center; gap: 28px; height: 72px; }
+  .brand { display: flex; align-items: center; gap: 10px; color: var(--stage-ink); text-decoration: none; font: 400 26px/1 var(--serif); }
+  .nav .links { margin-left: auto; display: flex; gap: 24px; font-size: 14.5px; }
+  .nav .links a { color: var(--stage-muted); text-decoration: none; }
+  .nav .links a:hover { color: var(--stage-ink); }
+
+  /* hero */
+  .hero { background: radial-gradient(1200px 520px at 50% -80px, rgba(255, 236, 214, 0.10), transparent 70%), var(--stage); color: var(--stage-ink); padding: 136px 0 0; position: relative; overflow: hidden; }
+  .hero .wrap { text-align: center; }
+  .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; letter-spacing: 0.04em; color: var(--stage-muted); border: 1px solid var(--stage-line); border-radius: 999px; padding: 5px 14px; }
+  .eyebrow b { color: #E8655A; font-weight: 600; }
+  h1 { font: 400 clamp(48px, 8.4vw, 92px)/0.98 var(--serif); letter-spacing: -0.02em; margin: 22px 0 22px; }
+  h1 em { color: #E8655A; }
+  .lede { max-width: 640px; margin: 0 auto; color: #CFC7CF; font-size: 18.5px; }
+  .ctas { display: flex; justify-content: center; gap: 12px; margin: 34px 0 14px; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 9px; padding: 13px 22px; border-radius: 12px; font-weight: 500; font-size: 16px; text-decoration: none; border: 1px solid transparent; transition: transform .15s, background .15s; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.primary { background: var(--stage-ink); color: var(--stage); }
+  .btn.ghost { border-color: var(--stage-line); color: var(--stage-ink); }
+  .btn.ghost:hover { background: var(--stage-2); }
+  .btn svg { flex: none; }
+  .fine { font-size: 13.5px; color: var(--stage-muted); }
+  .fine a { color: var(--stage-ink); }
+
+  .stagebox { position: relative; max-width: 960px; margin: 56px auto 0; }
+  .stagebox svg.puppet { width: 100%; height: auto; display: block; }
+  .sway { transform-box: view-box; transform-origin: 480px -60px; animation: sway 7s ease-in-out infinite alternate; }
+  @keyframes sway { from { transform: rotate(-1.1deg); } to { transform: rotate(1.1deg); } }
+  @media (prefers-reduced-motion: reduce) { .sway { animation: none; } }
+  .term { position: absolute; left: -24px; bottom: 26px; width: 360px; text-align: left; background: var(--code-bg); border: 1px solid #2E2A33; border-radius: 12px; box-shadow: 0 24px 60px rgba(0,0,0,.45); font: 12px/1.6 var(--mono); color: var(--code-ink); overflow: hidden; }
+  .term .bar { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid #2E2A33; }
+  .term .bar i { width: 10px; height: 10px; border-radius: 50%; background: #3A353F; }
+  .term pre { margin: 0; padding: 12px 14px 14px; white-space: pre-wrap; word-break: break-all; }
+  .term .p { color: var(--code-muted); }
+  .term .k { color: var(--code-key); }
+  .term .s { color: var(--code-str); }
+  .appcard { position: absolute; right: 0; top: 120px; width: 230px; text-align: left; background: #FFFDF9; color: #1C1A1F; border-radius: 12px; box-shadow: 0 24px 60px rgba(0,0,0,.45); font: 12px/1.45 var(--sans); padding: 12px 14px; }
+  .appcard .t { font: 400 18px/1 var(--serif); display: flex; align-items: center; gap: 7px; margin-bottom: 10px; }
+  .appcard .r { display: flex; align-items: center; gap: 7px; padding: 3px 0; }
+  .appcard .d { width: 7px; height: 7px; border-radius: 50%; background: #2F7D4F; box-shadow: 0 0 0 3px rgba(47,125,79,.18); }
+  .appcard .j { display: flex; gap: 7px; border-top: 1px solid #ECE4D8; padding-top: 6px; margin-top: 6px; color: #3A363E; }
+  .appcard .j b { color: #2F7D4F; font-weight: 600; }
+  .appcard .j span:last-child { margin-left: auto; color: #8B8490; }
+
+  /* sections */
+  section.block { padding: 104px 0; border-top: 1px solid var(--line); }
+  .kicker { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin: 0 0 12px; }
+  h2 { font: 400 clamp(36px, 5vw, 54px)/1.05 var(--serif); letter-spacing: -0.01em; margin: 0 0 18px; }
+  h2 em, h1 em { padding-right: 0.08em; }
+  h2 em { color: var(--accent); }
+  .intro { color: var(--muted); max-width: 620px; margin: 0 0 48px; }
+
+  /* compare */
+  .compare { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; font-size: 15.5px; }
+  .compare th, .compare td { text-align: left; padding: 16px 20px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .compare tr:last-child td { border-bottom: 0; }
+  .compare thead th { font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; background: var(--soft); }
+  .compare td:first-child { color: var(--muted); width: 26%; }
+  .compare td.win { font-weight: 500; }
+  .compare td.win::before { content: "✓"; color: var(--ok); margin-right: 8px; font-weight: 700; }
+
+  /* how */
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; counter-reset: step; }
+  .step { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 26px 24px; position: relative; }
+  .step .n { font: 400 44px/1 var(--serif); color: var(--accent); margin-bottom: 14px; display: block; }
+  .step h3 { margin: 0 0 8px; font-size: 18px; font-weight: 600; }
+  .step p { margin: 0; color: var(--muted); font-size: 15.5px; }
+  .step code { font-size: 13px; background: var(--soft); padding: 1px 6px; border-radius: 5px; color: var(--ink); }
+  .diagram { margin-top: 28px; background: var(--code-bg); color: var(--code-ink); border-radius: 16px; padding: 22px 24px; overflow-x: auto; font: 13px/1.7 var(--mono); }
+  .diagram .a { color: #E8655A; }
+  .diagram .m { color: var(--code-muted); }
+
+  /* install */
+  .install { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 26px 24px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .card h3 { margin: 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .card h3 .n { width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: var(--paper); display: grid; place-items: center; font-size: 13px; flex: none; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+  .card .dl { display: flex; flex-direction: column; gap: 8px; }
+  .dlbtn { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 14px; border-radius: 10px; border: 1px solid var(--line); text-decoration: none; font-weight: 500; font-size: 15px; background: var(--paper); }
+  .dlbtn:hover { border-color: var(--muted); }
+  .dlbtn.main { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .dlbtn small { font-weight: 400; opacity: .7; font-size: 12.5px; }
+  .snip { position: relative; background: var(--code-bg); color: var(--code-ink); border-radius: 10px; font: 12.5px/1.6 var(--mono); padding: 12px 14px; padding-right: 64px; white-space: pre-wrap; word-break: break-all; margin: 0; }
+  .copy { position: absolute; top: 8px; right: 8px; font: 500 11.5px/1 var(--sans); color: var(--code-ink); background: #2E2A33; border: 0; border-radius: 6px; padding: 6px 8px; cursor: pointer; }
+  .copy:hover { background: #3A353F; }
+  .note { font-size: 13.5px; color: var(--muted); border-left: 2px solid var(--accent); padding-left: 10px; }
+  .card kbd { font: 500 12.5px var(--sans); background: var(--soft); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 1px 6px; color: var(--ink); white-space: nowrap; }
+
+  /* code */
+  .codegrid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 20px; align-items: start; }
+  .codecard { background: var(--code-bg); color: var(--code-ink); border-radius: 16px; overflow: hidden; }
+  .codecard .h { font: 500 12.5px var(--mono); color: var(--code-muted); padding: 12px 18px; border-bottom: 1px solid #2E2A33; }
+  .codecard pre { margin: 0; padding: 16px 18px 18px; font-size: 13px; line-height: 1.65; overflow-x: auto; }
+  .c { color: var(--code-muted); } .kw { color: #E8655A; } .st { color: var(--code-str); } .fn { color: var(--code-key); }
+  .helpers { width: 100%; border-collapse: collapse; font-size: 14.5px; margin-top: 20px; }
+  .helpers td { padding: 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .helpers td:first-child { white-space: nowrap; padding-right: 16px; }
+  .helpers code { font-size: 12.5px; background: var(--soft); padding: 2px 6px; border-radius: 5px; }
+  .helpers td:last-child { color: var(--muted); }
+
+  /* safety + faq */
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; }
+  .ticks { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
+  .ticks li { display: grid; grid-template-columns: 28px 1fr; }
+  .ticks li::before { content: ""; width: 18px; height: 18px; margin-top: 4px; border-radius: 50%; background: var(--accent-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath d='M5 9.5l2.6 2.5L13 6.5' fill='none' stroke='%23C2382E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/18px no-repeat; }
+  .ticks b { display: block; font-weight: 600; }
+  .ticks span { color: var(--muted); font-size: 15.5px; }
+  details.faq { border-bottom: 1px solid var(--line); padding: 16px 0; }
+  details.faq summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; gap: 12px; }
+  details.faq summary::-webkit-details-marker { display: none; }
+  details.faq summary::after { content: "+"; margin-left: auto; color: var(--muted); font-weight: 400; font-size: 20px; line-height: 1; }
+  details.faq[open] summary::after { content: "–"; }
+  details.faq p { margin: 10px 0 0; color: var(--muted); font-size: 15.5px; }
+  details.faq code { font-size: 13px; background: var(--soft); padding: 1px 6px; border-radius: 5px; }
+
+  /* closing */
+  .closing { background: var(--stage); color: var(--stage-ink); text-align: center; padding: 104px 0 96px; }
+  .closing h2 { color: var(--stage-ink); }
+  .closing h2 em { color: #E8655A; }
+  .closing p { color: var(--stage-muted); margin: 0 auto 30px; max-width: 520px; }
+  footer { background: var(--stage); color: var(--stage-muted); font-size: 14px; border-top: 1px solid var(--stage-line); }
+  footer .wrap { display: flex; gap: 22px; align-items: center; height: 76px; }
+  footer .sp { margin-right: auto; }
+  footer a { color: var(--stage-muted); text-decoration: none; }
+  footer a:hover { color: var(--stage-ink); }
+
+  @media (max-width: 900px) {
+    .steps, .install, .codegrid, .two { grid-template-columns: 1fr; }
+    .two { gap: 48px; }
+    .appcard { display: none; }
+    .term { position: relative; bottom: auto; width: auto; margin: -24px 0 40px; }
+  }
+  @media (max-width: 640px) {
+    .wrap { padding: 0 16px; }
+    .nav .links a:not(.gh) { display: none; }
+    .hero { padding-top: 112px; }
+    .lede { font-size: 17px; }
+    section.block { padding: 72px 0; }
+    .compare { font-size: 14px; }
+    .compare th, .compare td { padding: 12px 12px; }
+    .compare td:first-child { width: 30%; }
+    .btn { width: 100%; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Marionette home">
+      <svg width="30" height="30" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#2A262E"/><g stroke="#F5F0E8" stroke-linecap="round"><path d="M16 15h32M32 9v14" stroke-width="4"/><path d="M17 15l2 23M47 15l-2 23M32 23v15" stroke-width="1.5" opacity=".8"/></g><rect x="17" y="38" width="30" height="16" rx="3" fill="#C8392F"/><g fill="#F5F0E8"><rect x="15" y="36" width="4" height="4"/><rect x="45" y="36" width="4" height="4"/><rect x="15" y="52" width="4" height="4"/><rect x="45" y="52" width="4" height="4"/></g></svg>
+      Marionette
+    </a>
+    <nav class="links">
+      <a href="#how">How it works</a>
+      <a href="#install">Install</a>
+      <a href="#scripts">Scripts</a>
+      <a href="#faq">FAQ</a>
+      <a class="gh" href="https://github.com/qar/figma-marionette">GitHub ↗</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero" id="top">
+  <div class="wrap">
+    <span class="eyebrow"><b>New</b> A desktop app for AI agents</span>
+    <h1>Pull Figma's <em>strings</em><br>from your AI agent.</h1>
+    <p class="lede">Marionette is a tiny desktop app that lets your agent run unlimited Plugin&nbsp;API scripts in the Figma file you have open — build screens, restyle components, read the canvas, take screenshots. No 20&#8209;calls&#8209;a&#8209;month ceiling, no cloud in between.</p>
+    <div class="ctas">
+      <a class="btn primary" href="https://github.com/qar/figma-marionette/releases/latest/download/Marionette-macos.zip">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+        Download for macOS
+      </a>
+      <a class="btn ghost" href="#install">Other platforms &amp; setup</a>
+    </div>
+    <p class="fine">Free and open source (MIT) · Apple Silicon &amp; Intel · <a href="https://github.com/qar/figma-marionette">Source on GitHub</a></p>
+
+    <div class="stagebox" aria-hidden="true">
+      <svg class="puppet" viewBox="0 0 960 520" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F2ECE2" stop-opacity=".06"/><stop offset="1" stop-color="#F2ECE2" stop-opacity="0"/></linearGradient>
+        </defs>
+        <ellipse cx="480" cy="500" rx="360" ry="34" fill="url(#floor)"/>
+        <g class="sway">
+          <g stroke="#F2ECE2" stroke-linecap="round" fill="none">
+            <path d="M330 44h300" stroke-width="14"/>
+            <path d="M480 10v84" stroke-width="14"/>
+            <path d="M336 44L276 196M624 44l60 152M480 94v102" stroke-width="1.6" opacity=".55"/>
+          </g>
+          <rect x="276" y="196" width="408" height="274" rx="12" fill="#FFFDF9"/>
+          <text x="304" y="240" font-family="Instrument Serif, Georgia, serif" font-size="26" fill="#1C1A1F">Settings</text>
+          <g font-family="Inter, sans-serif" font-size="13" fill="#3A363E">
+            <rect x="304" y="258" width="352" height="38" rx="9" fill="#F2ECE2"/>
+            <circle cx="324" cy="277" r="7" fill="#C2382E" opacity=".85"/><text x="342" y="282">Notifications</text>
+            <rect x="614" y="268" width="30" height="18" rx="9" fill="#C2382E"/><circle cx="635" cy="277" r="7" fill="#FFF"/>
+            <rect x="304" y="304" width="352" height="38" rx="9" fill="#F2ECE2"/>
+            <circle cx="324" cy="323" r="7" fill="#2F7D4F" opacity=".85"/><text x="342" y="328">Dark mode</text>
+            <rect x="614" y="314" width="30" height="18" rx="9" fill="#D3CBBE"/><circle cx="623" cy="323" r="7" fill="#FFF"/>
+            <rect x="304" y="350" width="352" height="38" rx="9" fill="#F2ECE2"/>
+            <circle cx="324" cy="369" r="7" fill="#B7791F" opacity=".85"/><text x="342" y="374">Auto-update</text>
+            <rect x="614" y="360" width="30" height="18" rx="9" fill="#C2382E"/><circle cx="635" cy="369" r="7" fill="#FFF"/>
+            <rect x="304" y="404" width="352" height="40" rx="10" fill="#1C1A1F"/>
+            <text x="480" y="429" text-anchor="middle" fill="#F6F1E9" font-weight="600">Save changes</text>
+          </g>
+          <rect x="276" y="196" width="408" height="274" rx="12" fill="none" stroke="#E8655A" stroke-width="2"/>
+          <g fill="#FFFDF9" stroke="#E8655A" stroke-width="2">
+            <rect x="270" y="190" width="12" height="12" rx="2"/><rect x="678" y="190" width="12" height="12" rx="2"/>
+            <rect x="270" y="464" width="12" height="12" rx="2"/><rect x="678" y="464" width="12" height="12" rx="2"/>
+          </g>
+          <rect x="574" y="482" width="110" height="22" rx="5" fill="#E8655A"/>
+          <text x="629" y="497" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#FFF">375 × 812</text>
+        </g>
+      </svg>
+
+      <div class="term">
+        <div class="bar"><i></i><i></i><i></i></div>
+<pre><span class="p">$</span> curl --data-binary @settings.js \
+    '127.0.0.1:3055/run?wait=90'
+{<span class="k">"ok"</span>: true, <span class="k">"ms"</span>: 412,
+ <span class="k">"result"</span>: {<span class="k">"id"</span>: <span class="s">"20:136"</span>,
+   <span class="k">"preview"</span>: <span class="s">"/tmp/marionette/5f2c-0.png"</span>}}</pre>
+      </div>
+
+      <div class="appcard">
+        <div class="t"><svg width="18" height="18" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#2A262E"/><g stroke="#F5F0E8" stroke-linecap="round"><path d="M16 15h32M32 9v14" stroke-width="5"/></g><rect x="17" y="36" width="30" height="18" rx="3" fill="#C8392F"/></svg>Marionette</div>
+        <div class="r"><span class="d"></span>Bridge · listening</div>
+        <div class="r"><span class="d"></span>Figma · plugin connected</div>
+        <div class="j"><b>✓</b><span>Build the settings screen</span><span>0.4s</span></div>
+        <div class="j"><b>✓</b><span>Export at 2x</span><span>0.2s</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="why">
+  <div class="wrap">
+    <p class="kicker">Why</p>
+    <h2>The canvas, <em>without the meter</em>.</h2>
+    <p class="intro">The official Figma MCP server is great for reading designs, but on the Starter plan it allows only 20 tool calls a month — a single screen can take more than that. Marionette moves the write path onto your own machine.</p>
+    <table class="compare">
+      <thead><tr><th></th><th>Official Figma MCP (Starter)</th><th>Marionette</th></tr></thead>
+      <tbody>
+        <tr><td>Tool calls</td><td>20 per month</td><td class="win">Unlimited</td></tr>
+        <tr><td>Runs on</td><td>A remote MCP server</td><td class="win">Your computer, 127.0.0.1</td></tr>
+        <tr><td>What scripts can do</td><td><code>use_figma</code> conveniences</td><td class="win">The full Plugin API, plus helpers</td></tr>
+        <tr><td>Screenshots</td><td>A separate tool call</td><td class="win">Returned with the result as PNG files</td></tr>
+        <tr><td>Source</td><td>Closed</td><td class="win">Open source, MIT</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block" id="how">
+  <div class="wrap">
+    <p class="kicker">How it works</p>
+    <h2>Three pieces, <em>one string</em> each.</h2>
+    <p class="intro">Nothing to start in a terminal. Open the app, keep its window open, and the Figma plugin and your agent find each other.</p>
+    <div class="steps">
+      <div class="step"><span class="n">1</span><h3>Your agent sends a script</h3><p>Plain JavaScript against the Figma Plugin API, POSTed to <code>127.0.0.1:3055/run</code>. Claude Code does this on its own once the skill is installed.</p></div>
+      <div class="step"><span class="n">2</span><h3>Marionette holds the line</h3><p>The app queues the script and shows it in its window, along with whether the Figma plugin is connected.</p></div>
+      <div class="step"><span class="n">3</span><h3>Figma performs it</h3><p>The Marionette plugin runs the script inside the file you have open. The return value and any screenshots flow straight back.</p></div>
+    </div>
+<pre class="diagram"><span class="m">AI agent</span>                         <span class="m">Marionette app</span>                  <span class="m">Figma desktop</span>
+  curl POST /run?wait=90  <span class="a">──▶</span>   127.0.0.1:3055   <span class="a">◀──</span> GET /pull (every 500ms) <span class="a">──</span>  Marionette plugin
+  <span class="a">◀──</span> result JSON + PNG paths    queue + window   <span class="a">◀──</span> POST /result <span class="a">────────────</span>  runs the script</pre>
+  </div>
+</section>
+
+<section class="block" id="install">
+  <div class="wrap">
+    <p class="kicker">Install</p>
+    <h2>Five minutes, <em>once</em>.</h2>
+    <p class="intro">After the first setup, using Marionette is just: open the app, open the plugin in Figma, talk to your agent.</p>
+    <div class="install">
+      <div class="card">
+        <h3><span class="n">1</span>Get the app</h3>
+        <div class="dl">
+          <a class="dlbtn main" href="https://github.com/qar/figma-marionette/releases/latest/download/Marionette-macos.zip">macOS <small>Apple Silicon &amp; Intel · 5 MB</small></a>
+          <a class="dlbtn" href="https://github.com/qar/figma-marionette/releases/latest/download/Marionette-windows-amd64.zip">Windows <small>experimental</small></a>
+          <a class="dlbtn" href="https://github.com/qar/figma-marionette/releases/latest">Linux <small>headless</small></a>
+        </div>
+        <p class="note">Not notarized yet: on first launch macOS refuses it. Open <b>System Settings → Privacy &amp; Security</b> and click <b>Open Anyway</b> — or install from Terminal:</p>
+        <pre class="snip">curl -fsSL -o /tmp/Marionette.zip https://github.com/qar/figma-marionette/releases/latest/download/Marionette-macos.zip &amp;&amp; ditto -xk /tmp/Marionette.zip /Applications &amp;&amp; open -a Marionette<button class="copy" type="button">Copy</button></pre>
+      </div>
+      <div class="card">
+        <h3><span class="n">2</span>Import the Figma plugin</h3>
+        <p>In the Marionette window, open <b>Setup</b> and click <kbd>Show in Finder</kbd>. Then in Figma desktop:</p>
+        <p><kbd>Plugins</kbd> → <kbd>Development</kbd> → <kbd>Import plugin from manifest…</kbd> and pick that <code>manifest.json</code>.</p>
+        <p>From then on, run <b>Plugins → Development → Marionette</b> and leave its panel open. The app turns green when it connects.</p>
+      </div>
+      <div class="card">
+        <h3><span class="n">3</span>Connect your agent</h3>
+        <p><b>Claude Code:</b> click <kbd>Install skill</kbd> in the Marionette window — or add the plugin:</p>
+        <pre class="snip">/plugin marketplace add qar/figma-marionette
+/plugin install figma-marionette<button class="copy" type="button">Copy</button></pre>
+        <p><b>Any other agent:</b> POST the script and read the JSON.</p>
+        <pre class="snip">curl -sS --data-binary @script.js 'http://127.0.0.1:3055/run?wait=90'<button class="copy" type="button">Copy</button></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="scripts">
+  <div class="wrap">
+    <p class="kicker">Scripts</p>
+    <h2>The whole Plugin API, <em>plus a few helpers</em>.</h2>
+    <p class="intro">Same shape as the official <code>use_figma</code>: plain JavaScript with top-level <code>await</code> that returns a JSON-serializable value. A failed script changes nothing in the file.</p>
+    <div class="codegrid">
+      <div class="codecard">
+        <div class="h">hello-card.js</div>
+<pre><span class="c">// Hello card</span>
+<span class="kw">await</span> figma.<span class="fn">loadFontAsync</span>({ family: <span class="st">"Inter"</span>, style: <span class="st">"Bold"</span> });
+<span class="kw">const</span> { AL, T, shot } = helpers;
+
+<span class="kw">const</span> card = <span class="fn">AL</span>(<span class="st">"VERTICAL"</span>, {
+  itemSpacing: 8, cornerRadius: 16, fill: <span class="st">"#FFFFFF"</span>,
+  paddingLeft: 16, paddingRight: 16, paddingTop: 16, paddingBottom: 16,
+});
+card.<span class="fn">appendChild</span>(<span class="fn">T</span>(<span class="st">"Hello"</span>, { family: <span class="st">"Inter"</span>, style: <span class="st">"Bold"</span>, size: 24 }));
+figma.currentPage.<span class="fn">appendChild</span>(card);
+
+<span class="kw">return</span> { id: card.id, preview: <span class="kw">await</span> <span class="fn">shot</span>(card, 2) };</pre>
+      </div>
+      <div>
+        <div class="codecard">
+          <div class="h">response</div>
+<pre>{
+  <span class="fn">"ok"</span>: <span class="kw">true</span>,
+  <span class="fn">"ms"</span>: 236,
+  <span class="fn">"result"</span>: {
+    <span class="fn">"id"</span>: <span class="st">"41:2"</span>,
+    <span class="fn">"preview"</span>: <span class="st">"/tmp/marionette/9c1e2a7b-0.png"</span>
+  }
+}</pre>
+        </div>
+        <table class="helpers">
+          <tr><td><code>helpers.AL(dir, opts)</code></td><td>Auto-layout frame, preconfigured</td></tr>
+          <tr><td><code>helpers.T(chars, opts)</code></td><td>Text node (load the font first)</td></tr>
+          <tr><td><code>helpers.S(hex, opacity?)</code></td><td>Solid fills array</td></tr>
+          <tr><td><code>helpers.SVG(markup, w, h)</code></td><td>Vector from SVG markup</td></tr>
+          <tr><td><code>helpers.shot(node, scale?)</code></td><td>Screenshot, returned as a PNG path</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="faq">
+  <div class="wrap two">
+    <div>
+      <p class="kicker">Safety</p>
+      <h2>Local, and <em>only</em> local.</h2>
+      <ul class="ticks">
+        <li><div><b>Listens on 127.0.0.1 only</b><span>Nothing leaves your machine; there is no account and no cloud service.</span></div></li>
+        <li><div><b>Web pages can't pull the strings</b><span>Requests from browsers are refused, and so are foreign host names — a website you visit cannot drive your Figma.</span></div></li>
+        <li><div><b>Errors are atomic</b><span>A script that throws leaves the file untouched; your agent reads the error and tries again.</span></div></li>
+        <li><div><b>Close the window, cut the strings</b><span>Quitting the app stops the bridge. Nothing runs in the background.</span></div></li>
+      </ul>
+    </div>
+    <div>
+      <p class="kicker">FAQ</p>
+      <details class="faq"><summary>Does it only work with Claude Code?</summary><p>No. Claude Code gets a ready-made skill, but any agent or script that can make an HTTP request — Cursor, Codex, your own tooling — can POST to <code>127.0.0.1:3055/run</code>.</p></details>
+      <details class="faq"><summary>Why does macOS say it can't verify the app?</summary><p>The app is signed ad hoc, not notarized by Apple yet. Use <b>Open Anyway</b> in Privacy &amp; Security, or the Terminal install line, which doesn't trigger the prompt. The source and the release build pipeline are public.</p></details>
+      <details class="faq"><summary>Does it replace the official Figma MCP?</summary><p>For anything that touches the canvas, yes. Keep the official MCP for cloud-only features Marionette can't reach: searching team libraries, Code Connect and creating new files.</p></details>
+      <details class="faq"><summary>Which file does it edit?</summary><p>The file that is open in Figma desktop with the Marionette plugin running. Keep the plugin panel open while your agent works.</p></details>
+      <details class="faq"><summary>What does it cost?</summary><p>Nothing. Marionette is MIT-licensed and works with any Figma plan that can run development plugins in Figma desktop.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="closing">
+  <div class="wrap">
+    <h2>Take the <em>strings</em>.</h2>
+    <p>Download the app, run the plugin once, and let your agent design.</p>
+    <div class="ctas">
+      <a class="btn primary" href="https://github.com/qar/figma-marionette/releases/latest/download/Marionette-macos.zip">Download for macOS</a>
+      <a class="btn ghost" href="https://github.com/qar/figma-marionette">Star on GitHub</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span class="sp">Marionette · MIT License</span>
+    <a href="https://github.com/qar/figma-marionette/releases">Releases</a>
+    <a href="https://github.com/qar/figma-marionette">GitHub</a>
+  </div>
+</footer>
+
+<script>
+  document.querySelectorAll(".snip .copy").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var text = btn.parentElement.textContent.replace(/Copy(ed)?$/, "").trim();
+      navigator.clipboard.writeText(text).then(function () {
+        btn.textContent = "Copied";
+        setTimeout(function () { btn.textContent = "Copy"; }, 1400);
+      });
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
-// Figma Agent Bridge — plugin side.
-// Keeps polling a local bridge server (via ui.html) and executes received
+// Marionette — plugin side.
+// Keeps polling the Marionette desktop app (via ui.html) and executes received
 // scripts against the Figma Plugin API. This replaces the official Figma MCP
 // write path (use_figma) with an unlimited local channel.
 //
@@ -50,7 +50,8 @@ const SVG = (markup, w, h) => {
   return n;
 };
 
-// Export a node as PNG. The result is tagged so run.mjs saves it to a file.
+// Export a node as PNG. The result is tagged so the Marionette app saves it
+// to a file and hands the agent its path.
 const shot = async (node, scale = 1) => {
   const bytes = await node.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: scale } });
   return { $png: figma.base64Encode(bytes) };

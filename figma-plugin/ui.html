@@ -5,12 +5,15 @@
   .ok { color: #047857; }
   .off { color: #DC2626; }
 </style>
-<div>Figma Agent Bridge</div>
+<div>Marionette</div>
 <div id="state" class="off">Connecting…</div>
-<div id="detail">Bridge server http://127.0.0.1:3055</div>
+<div id="detail">Marionette app · http://127.0.0.1:3055</div>
 <script>
   const SERVER = "http://127.0.0.1:3055";
-  let busy = false;
+  // Written by the Marionette app when it extracts this plugin.
+  const HEADERS = { "X-Marionette-Token": "__MARIONETTE_TOKEN__" };
+  let current = null; // id of the script being run, if any
+  let inflight = false;
   let done = 0;
   const stateEl = document.getElementById("state");
   const detailEl = document.getElementById("detail");
@@ -21,19 +24,29 @@
   };
 
   async function tick() {
-    if (busy) return;
+    if (inflight) return;
+    inflight = true;
     try {
-      const r = await fetch(SERVER + "/pull");
+      if (current) {
+        // Heartbeat, so the app knows the script is still running.
+        await fetch(SERVER + "/pull?busy=" + current, { headers: HEADERS });
+        return;
+      }
+      const r = await fetch(SERVER + "/pull", { headers: HEADERS });
       const j = await r.json();
-      if (j.job) {
-        busy = true;
+      if (!r.ok) {
+        setState(false, "Refused by the Marionette app", j.error || "status " + r.status);
+      } else if (j.job) {
+        current = j.job.id;
         setState(true, "Running…", "job " + j.job.id.slice(0, 8));
         parent.postMessage({ pluginMessage: { type: "run", id: j.job.id, code: j.job.code } }, "*");
       } else {
         setState(true, "Connected · idle", done + " script(s) completed");
       }
     } catch (e) {
-      setState(false, "Bridge server unreachable", "Start it with: node bridge-server.mjs");
+      setState(false, "Marionette app not running", "Open the Marionette app on this computer");
+    } finally {
+      inflight = false;
     }
   }
 
@@ -41,13 +54,13 @@
     const m = e.data.pluginMessage;
     if (!m || m.type !== "result") return;
     try {
-      await fetch(SERVER + "/result", {
+      await fetch(SERVER + "/result?id=" + encodeURIComponent(m.id), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify(m),
       });
-    } catch (_) { /* server gone; result is dropped, CLI will time out */ }
-    busy = false;
+    } catch (_) { /* app gone; it fails the job when the heartbeat stops */ }
+    current = null;
     done++;
   };
 

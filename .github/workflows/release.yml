@@ -1,0 +1,42 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # macOS: the .app needs cgo + lipo + codesign; Windows and Linux builds are pure Go.
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: make test
+      - run: make release VERSION="$GITHUB_REF_NAME"
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/Marionette-macos.zip \
+            dist/Marionette-windows-amd64.zip \
+            dist/marionette-linux-amd64.tar.gz \
+            dist/marionette-linux-arm64.tar.gz \
+            --title "Marionette $GITHUB_REF_NAME" --generate-notes
+      - name: Keep the build
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: marionette-${{ github.sha }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz

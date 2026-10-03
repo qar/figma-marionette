@@ -1,60 +1,73 @@
-# Figma Agent Bridge
+# Marionette
+
+**Pull Figma's strings from your AI agent.** · [marionette.otimififi.site](https://marionette.otimififi.site)
 
 Unmetered read/write access to Figma from an AI agent, through the **Figma Plugin API** — a self-hosted replacement for the write path of the official Figma MCP server, which allows only 20 tool calls per month on the Starter plan.
 
-A local server queues scripts; a Figma plugin polls it and executes them against the file you have open, returning JSON results and screenshots.
+Marionette is a small desktop app. Open it, run its Figma plugin once, and any agent on your machine can execute scripts against the Figma file you have open — creating, editing, inspecting and screenshotting — with nothing to start or configure in a terminal.
+
+## How it works
+
+```
+AI agent                         Marionette app                  Figma desktop
+  curl POST /run?wait=90  ──▶   127.0.0.1:3055   ◀── GET /pull (every 500ms) ──  Marionette plugin
+  ◀── result JSON + PNG paths    queue + window   ◀── POST /result ─────────────  runs the script
+```
+
+- **App** (`cmd/marionette`) — a ~6 MB Go binary: the local bridge server plus a status window showing whether the Figma plugin is connected and what scripts ran. Closing the window stops it.
+- **Figma plugin** (`figma-plugin/`) — embedded in the app; polls the bridge and executes scripts with the Plugin API.
+- **Skill** (`skills/figma-marionette/SKILL.md`) — teaches Claude Code to reach for Marionette whenever a task touches Figma.
 
 ## Install
 
-### As a Claude Code plugin (recommended)
+### 1. The app
 
-```
-/plugin marketplace add qar/figma-agent-bridge
-/plugin install figma-agent-bridge
-```
+| Platform | Download |
+|---|---|
+| macOS 11+ (Apple Silicon & Intel) | [Marionette-macos.zip](https://github.com/qar/figma-marionette/releases/latest/download/Marionette-macos.zip) |
+| Windows 10/11 (experimental) | [Marionette-windows-amd64.zip](https://github.com/qar/figma-marionette/releases/latest/download/Marionette-windows-amd64.zip) |
+| Linux (headless, status page in the browser) | [amd64](https://github.com/qar/figma-marionette/releases/latest/download/marionette-linux-amd64.tar.gz) · [arm64](https://github.com/qar/figma-marionette/releases/latest/download/marionette-linux-arm64.tar.gz) |
 
-This installs the `figma-bridge` skill, so Claude reaches for the bridge automatically whenever a task touches Figma. Then import the Figma-side plugin once (see below).
-
-### Manually (any agent, or Claude Code without the plugin system)
-
-```bash
-git clone https://github.com/qar/figma-agent-bridge.git
-cd figma-agent-bridge
-./install.sh              # → ~/.claude/skills/figma-bridge
-./install.sh --project    # → ./.claude/skills/figma-bridge
-```
-
-`install.sh` bakes the checkout's absolute path into the installed skill, so the agent can find `run.mjs` without any environment variable.
-
-### Figma side (required either way, once)
-
-In **Figma desktop**: Plugins → Development → Import plugin from manifest… → pick this repo's `manifest.json`. Run **Figma Agent Bridge** once per working session and leave the panel open; it should read "Connected · idle".
-
-Installed via the Claude plugin system, the repo lives under `~/.claude/plugins/cache/` — ask Claude for the exact `manifest.json` path.
-
-## Architecture
-
-```
-agent / CLI                    bridge-server.mjs               Figma desktop plugin
-  node run.mjs xx.js  ── POST /run ──▶  queue  ◀── GET /pull (500ms poll) ── ui.html
-  poll GET /result    ◀── store  ◀──────────── POST /result ──────────── code.js evals script
-```
-
-- `bridge-server.mjs` — zero-dependency Node server, bound to 127.0.0.1:3055 only
-- `code.js` + `ui.html` — the plugin: the UI polls the bridge, the main thread executes received scripts via AsyncFunction
-- `run.mjs` — CLI: submits a script file and waits for the result; auto-starts the server; saves any returned PNG to disk
-- `skills/figma-bridge/SKILL.md` — the agent-facing usage guide
-- `scripts/` — example scripts
-
-## Usage
+The macOS app is not notarized yet. After unzipping, macOS will refuse the first launch: open **System Settings → Privacy & Security** and click **Open Anyway**. Or install from Terminal, which skips the quarantine prompt:
 
 ```bash
-node run.mjs my-script.js            # default 120s timeout
-node run.mjs my-script.js --timeout 300
-node run.mjs my-script.js --no-spawn # fail instead of auto-starting the server
+curl -fsSL -o /tmp/Marionette.zip https://github.com/qar/figma-marionette/releases/latest/download/Marionette-macos.zip \
+  && ditto -xk /tmp/Marionette.zip /Applications && open -a Marionette
 ```
 
-`run.mjs` starts `bridge-server.mjs` detached if nothing is listening, so there is no separate start step. Logs from an auto-started instance go to `/tmp/figma-bridge-server.log`. Override the port with `FIGMA_BRIDGE_PORT`.
+### 2. The Figma plugin (once)
+
+In the Marionette window, open **Setup** → **Show in Finder**. Then in **Figma desktop**: Plugins → Development → Import plugin from manifest… → pick that `manifest.json`.
+
+From then on, run **Plugins → Development → Marionette** once per Figma session and leave its panel open. The app window turns green when it connects.
+
+### 3. Your agent
+
+**Claude Code** — either click **Install skill** in the Marionette window, or install the plugin:
+
+```
+/plugin marketplace add qar/figma-marionette
+/plugin install figma-marionette
+```
+
+**Any other agent** — call the HTTP API below. `./install.sh` copies the skill into `~/.claude/skills/` (or `./.claude/skills/` with `--project`) for agents that read that layout.
+
+## HTTP API
+
+All endpoints listen on `127.0.0.1:3055` (override with `MARIONETTE_PORT`).
+
+```bash
+curl -sS --data-binary @script.js 'http://127.0.0.1:3055/run?wait=90'
+```
+
+| Request | Response |
+|---|---|
+| `POST /run?wait=N` — body: the script (or `{"code": "..."}` JSON) | `200 {ok: true, result, ms}` · `422 {ok: false, error, stack}` when the script throws · `504 {state: "expired"}` when the plugin never picked it up (the script is discarded) · `504 {state: "running"}` when it is still executing |
+| `POST /run` (no `wait`) | `{id}` |
+| `GET /result?id=…&wait=N` | the outcome as above, or `200 {pending: true, state}` if the job hasn't finished within `wait` (polling never discards a job) |
+| `GET /health` | `{ok, version, plugin_connected, queued}` |
+
+Any `{$png: base64}` value in a result — what `helpers.shot()` returns — is written to a PNG file under the system temp directory and replaced with its path.
 
 ## Script contract
 
@@ -67,9 +80,10 @@ Plain JavaScript; top-level `await` allowed; `return` a JSON-serializable value.
 | `helpers.AL(dir, opts)` | frame with auto-layout preconfigured (the vanilla API has no `createAutoLayout`) |
 | `helpers.T(chars, opts)` | text node — load the font with `loadFontAsync` first |
 | `helpers.SVG(markup, w, h)` | vector node from SVG markup |
-| `await helpers.shot(node, scale?)` | node screenshot; `run.mjs` saves it and returns the PNG path |
+| `await helpers.shot(node, scale?)` | node screenshot, returned as a PNG file path |
 
 ```js
+// Hello card
 await figma.loadFontAsync({ family: "Inter", style: "Bold" });
 const { AL, T, shot } = helpers;
 const card = AL("VERTICAL", { itemSpacing: 8, paddingLeft: 16, paddingRight: 16, paddingTop: 16, paddingBottom: 16, cornerRadius: 16, fill: "#FFFFFF" });
@@ -78,21 +92,46 @@ figma.currentPage.appendChild(card);
 return { id: card.id, preview: await shot(card, 2) };
 ```
 
+The app lists each script by its first line, so a leading `// comment` makes the activity log readable.
+
 ## Security
 
-Scripts are eval'ed inside the Figma plugin sandbox, and the bridge server listens on 127.0.0.1 with no authentication. **Never** expose the port beyond localhost, and only submit scripts from sessions you trust.
+Scripts run with full access to the open Figma file. The bridge therefore:
+
+- binds to `127.0.0.1` only;
+- rejects requests whose `Host` is not `127.0.0.1`/`localhost` (blocks DNS rebinding);
+- rejects browser requests (`Origin` / `Sec-Fetch-Site` headers) on the agent endpoints (`/run`, `GET /result`), so web pages cannot submit scripts — only local tools like curl can;
+- admits only the plugin it extracted on the plugin endpoints (`/pull`, `POST /result`): each install generates a random token that is written into the plugin files, so a web page cannot read queued scripts or forge results.
+
+A script whose plugin stops responding for 15 seconds (panel closed, `figma.closePlugin()`) is failed rather than left hanging.
+
+Only run scripts from agent sessions you trust.
+
+## Build from source
+
+Requires Go 1.24+; the macOS window needs cgo (Xcode command line tools).
+
+```bash
+make test       # go test -race ./...
+make build      # dist/marionette for this machine
+make app        # dist/Marionette.app, universal (macOS only)
+make release    # every release archive (macOS only)
+```
+
+Pushing a `v*` tag builds and publishes a GitHub release via `.github/workflows/release.yml`.
 
 ## Known limitations
 
-- The plugin must stay open in Figma desktop; it operates on the **currently open file**
+- The Figma plugin must stay open in Figma desktop; it operates on the **currently open file**
 - Cloud-side features of the official MCP are out of scope: `search_design_system`, `get_libraries`, Code Connect, `create_new_file` (the last of those is exempt from the MCP rate limit anyway)
 - Results must be JSON-serializable — return node IDs, not node objects
+- The macOS app is ad-hoc signed, not notarized; the Windows build is untested on real hardware
 
 ## Roadmap
 
-- [ ] TypeScript + `@figma/plugin-typings` build chain
+- [ ] Developer ID signing + notarization for macOS; Windows icon and signing
 - [ ] WebSocket instead of polling; multi-file / multi-job routing
-- [ ] Before Figma Community publishing: add a `networkAccess` declaration and an auth token
+- [ ] Figma Community publishing: `networkAccess` declaration and an auth token
 
 ## License
 
