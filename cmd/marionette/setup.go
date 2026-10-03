@@ -100,7 +100,7 @@ func (a *actions) revealPlugin() error {
 		exec.Command("explorer", "/select,", manifest).Run()
 		return nil
 	default:
-		return exec.Command("xdg-open", a.pluginDir).Start()
+		return errors.New("not supported on this system")
 	}
 }
 
@@ -127,34 +127,14 @@ func (a *actions) openURL(url string) error {
 
 // copyText backs up navigator.clipboard, which the window tries first.
 func (a *actions) copyText(text string) error {
-	var cmd *exec.Cmd
-	switch goos {
-	case "darwin":
-		cmd = exec.Command("pbcopy")
-		// Launched from Finder there is no locale, and pbcopy would assume MacRoman.
-		cmd.Env = append(os.Environ(), "LANG=en_US.UTF-8")
-	case "linux":
-		cmd = linuxClipboard()
-	}
-	if cmd == nil {
+	if goos != "darwin" {
 		return errors.New("copying is not supported here")
 	}
+	cmd := exec.Command("pbcopy")
+	// Launched from Finder there is no locale, and pbcopy would assume MacRoman.
+	cmd.Env = append(os.Environ(), "LANG=en_US.UTF-8")
 	cmd.Stdin = strings.NewReader(text)
 	return cmd.Run()
-}
-
-// linuxClipboard picks whichever clipboard tool the session has.
-func linuxClipboard() *exec.Cmd {
-	tools := [][]string{{"xclip", "-selection", "clipboard"}, {"xsel", "--clipboard", "--input"}}
-	if os.Getenv("WAYLAND_DISPLAY") != "" {
-		tools = append([][]string{{"wl-copy"}}, tools...)
-	}
-	for _, t := range tools {
-		if _, err := exec.LookPath(t[0]); err == nil {
-			return exec.Command(t[0], t[1:]...)
-		}
-	}
-	return nil
 }
 
 func openExternal(url string) error {
@@ -164,6 +144,6 @@ func openExternal(url string) error {
 	case "windows":
 		return exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
 	default:
-		return exec.Command("xdg-open", url).Start()
+		return errors.New("not supported on this system")
 	}
 }

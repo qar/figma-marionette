@@ -2,7 +2,26 @@
 
 package main
 
-import "unsafe"
+import webview "github.com/webview/webview_go"
 
-// Nothing to do: the .app bundle's AppIcon.icns supplies the window icon.
-func prepareWindow(unsafe.Pointer) {}
+func runWindow(url string, a *actions) {
+	w := webview.New(false)
+	defer w.Destroy()
+	w.SetTitle("Marionette")
+	w.SetSize(460, 720, webview.HintNone)
+	w.Bind("revealPlugin", a.revealPlugin)
+	w.Bind("installSkill", a.installSkill)
+	w.Bind("openURL", a.openURL)
+	w.Bind("copyText", a.copyText)
+	w.Navigate(url)
+	w.Run()
+}
+
+func showError(msg string) {
+	w := webview.New(false)
+	defer w.Destroy()
+	w.SetTitle("Marionette")
+	w.SetSize(420, 200, webview.HintFixed)
+	w.SetHtml(errorPage(msg))
+	w.Run()
+}
