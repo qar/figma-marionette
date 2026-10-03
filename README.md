@@ -40,7 +40,7 @@ The Linux window needs WebKitGTK 4.1 (glibc 2.34+): `sudo apt install libwebkit2
 
 ### 2. The Figma plugin (once)
 
-In the Marionette window, open **Setup** → **Show in Finder**. Then in **Figma desktop**: Plugins → Development → Import plugin from manifest… → pick that `manifest.json`.
+In the Marionette window, open **Setup** → **Show in Finder** (**Show in Explorer** on Windows, **Open folder** on Linux). Then in **Figma desktop**: Plugins → Development → Import plugin from manifest… → pick that `manifest.json`.
 
 From then on, run **Plugins → Development → Marionette** once per Figma session and leave its panel open. The app window turns green when it connects.
 
