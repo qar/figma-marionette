@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Marionette
+Comment=Pull Figma's strings from your AI agent
+Exec=marionette
+Icon=marionette
+Terminal=false
+Categories=Development;Graphics;
+StartupWMClass=marionette

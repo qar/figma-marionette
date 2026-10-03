@@ -14,7 +14,7 @@ AI agent                         Marionette app                  Figma desktop
   ◀── result JSON + PNG paths    queue + window   ◀── POST /result ─────────────  runs the script
 ```
 
-- **App** (`cmd/marionette`) — a ~6 MB Go binary: the local bridge server plus a status window showing whether the Figma plugin is connected and what scripts ran. Closing the window stops it.
+- **App** (`cmd/marionette`) — a ~6 MB Go binary: the local bridge server plus a native status window (WKWebView on macOS, WebView2 on Windows, WebKitGTK on Linux) showing whether the Figma plugin is connected and what scripts ran. Closing the window stops it.
 - **Figma plugin** (`figma-plugin/`) — embedded in the app; polls the bridge and executes scripts with the Plugin API.
 - **Skill** (`skills/figma-marionette/SKILL.md`) — teaches Claude Code to reach for Marionette whenever a task touches Figma.
 
@@ -26,7 +26,8 @@ AI agent                         Marionette app                  Figma desktop
 |---|---|
 | macOS 11+ (Apple Silicon & Intel) | [Marionette-macos.zip](https://github.com/qar/figma-marionette/releases/latest/download/Marionette-macos.zip) |
 | Windows 10/11 (experimental) | [Marionette-windows-amd64.zip](https://github.com/qar/figma-marionette/releases/latest/download/Marionette-windows-amd64.zip) |
-| Linux (headless, status page in the browser) | [amd64](https://github.com/qar/figma-marionette/releases/latest/download/marionette-linux-amd64.tar.gz) · [arm64](https://github.com/qar/figma-marionette/releases/latest/download/marionette-linux-arm64.tar.gz) |
+| Linux x86_64 / arm64 | [amd64](https://github.com/qar/figma-marionette/releases/latest/download/marionette-linux-amd64.tar.gz) · [arm64](https://github.com/qar/figma-marionette/releases/latest/download/marionette-linux-arm64.tar.gz) — unpack, run `./marionette/install.sh` |
+| Linux without a desktop (headless) | [amd64](https://github.com/qar/figma-marionette/releases/latest/download/marionette-linux-amd64-headless.tar.gz) · [arm64](https://github.com/qar/figma-marionette/releases/latest/download/marionette-linux-arm64-headless.tar.gz) |
 
 The macOS app is not notarized yet. After unzipping, macOS will refuse the first launch: open **System Settings → Privacy & Security** and click **Open Anyway**. Or install from Terminal, which skips the quarantine prompt:
 
@@ -34,6 +35,8 @@ The macOS app is not notarized yet. After unzipping, macOS will refuse the first
 curl -fsSL -o /tmp/Marionette.zip https://github.com/qar/figma-marionette/releases/latest/download/Marionette-macos.zip \
   && ditto -xk /tmp/Marionette.zip /Applications && open -a Marionette
 ```
+
+The Linux window needs WebKitGTK 4.1 (glibc 2.34+): `sudo apt install libwebkit2gtk-4.1-0` on Debian/Ubuntu, `sudo dnf install webkit2gtk4.1` on Fedora, `sudo pacman -S webkit2gtk-4.1` on Arch. `install.sh` puts `marionette` in `~/.local/bin` and adds it to the applications menu. Without a display (SSH, servers) it runs headless. Figma has no official Linux app, so you need an unofficial desktop client that runs development plugins, such as [figma-linux](https://github.com/Figma-Linux/figma-linux).
 
 ### 2. The Figma plugin (once)
 
@@ -109,23 +112,24 @@ Only run scripts from agent sessions you trust.
 
 ## Build from source
 
-Requires Go 1.24+; the macOS window needs cgo (Xcode command line tools).
+Requires Go 1.24+. The window needs cgo: Xcode command line tools on macOS; `libgtk-3-dev libwebkit2gtk-4.1-dev` on Linux (the Makefile points pkg-config at WebKitGTK 4.1 via `packaging/linux/pkg-config.sh`).
 
 ```bash
-make test       # go test -race ./...
-make build      # dist/marionette for this machine
-make app        # dist/Marionette.app, universal (macOS only)
-make release    # every release archive (macOS only)
+make test            # go test -race ./...
+make build           # dist/marionette for this machine
+make app             # dist/Marionette.app, universal (macOS)
+make release-macos   # macOS, Windows and headless Linux archives (macOS)
+make release-linux   # Linux archive with the window, this machine's arch (Linux)
 ```
 
-Pushing a `v*` tag builds and publishes a GitHub release via `.github/workflows/release.yml`.
+Pushing a `v*` tag builds every archive on GitHub Actions (macOS + native Linux amd64/arm64 runners) and publishes a release via `.github/workflows/release.yml`.
 
 ## Known limitations
 
 - The Figma plugin must stay open in Figma desktop; it operates on the **currently open file**
 - Cloud-side features of the official MCP are out of scope: `search_design_system`, `get_libraries`, Code Connect, `create_new_file` (the last of those is exempt from the MCP rate limit anyway)
 - Results must be JSON-serializable — return node IDs, not node objects
-- The macOS app is ad-hoc signed, not notarized; the Windows build is untested on real hardware
+- The macOS app is ad-hoc signed, not notarized; the Windows build is untested on real hardware; the Linux window is tested under Xvfb, not on a real desktop
 
 ## Roadmap
 

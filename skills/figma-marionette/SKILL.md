@@ -35,7 +35,7 @@ Requests to localhost may need the command sandbox disabled.
   curl -fsSL -o /tmp/Marionette.zip https://github.com/qar/figma-marionette/releases/latest/download/Marionette-macos.zip && ditto -xk /tmp/Marionette.zip /Applications && open -a Marionette
   ```
 
-  On other systems, point them to https://marionette.otimififi.site.
+  On Linux, if `command -v marionette` finds it, start it with `marionette >/dev/null 2>&1 &`. Otherwise point the user to https://marionette.otimififi.site.
 - **504 with `"state": "expired"`** → the app is up but the Figma plugin is not connected. Ask the user to run it in Figma desktop: *Plugins → Development → Marionette*, and leave its panel open. First time only: the Marionette window's **Setup** section shows the `manifest.json` to import (*Plugins → Development → Import plugin from manifest…*).
 - Check any time: `curl -sS --noproxy '*' http://127.0.0.1:3055/health` → `plugin_connected`.
 

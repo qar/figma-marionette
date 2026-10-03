@@ -200,13 +200,13 @@
     <h1>Pull Figma's <em>strings</em><br>from your AI agent.</h1>
     <p class="lede">Marionette is a tiny desktop app that lets your agent run unlimited Plugin&nbsp;API scripts in the Figma file you have open — build screens, restyle components, read the canvas, take screenshots. No 20&#8209;calls&#8209;a&#8209;month ceiling, no cloud in between.</p>
     <div class="ctas">
-      <a class="btn primary" href="https://github.com/qar/figma-marionette/releases/latest/download/Marionette-macos.zip">
+      <a class="btn primary" data-dl href="https://github.com/qar/figma-marionette/releases/latest/download/Marionette-macos.zip">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
-        Download for macOS
+        <span class="dl-label">Download for macOS</span>
       </a>
       <a class="btn ghost" href="#install">Other platforms &amp; setup</a>
     </div>
-    <p class="fine">Free and open source (MIT) · Apple Silicon &amp; Intel · <a href="https://github.com/qar/figma-marionette">Source on GitHub</a></p>
+    <p class="fine">Free and open source (MIT) · macOS, Windows &amp; Linux · <a href="https://github.com/qar/figma-marionette">Source on GitHub</a></p>
 
     <div class="stagebox" aria-hidden="true">
       <svg class="puppet" viewBox="0 0 960 520" xmlns="http://www.w3.org/2000/svg">
@@ -310,10 +310,11 @@
         <div class="dl">
           <a class="dlbtn main" href="https://github.com/qar/figma-marionette/releases/latest/download/Marionette-macos.zip">macOS <small>Apple Silicon &amp; Intel · 5 MB</small></a>
           <a class="dlbtn" href="https://github.com/qar/figma-marionette/releases/latest/download/Marionette-windows-amd64.zip">Windows <small>experimental</small></a>
-          <a class="dlbtn" href="https://github.com/qar/figma-marionette/releases/latest">Linux <small>headless</small></a>
+          <a class="dlbtn" href="https://github.com/qar/figma-marionette/releases/latest">Linux <small>x86_64 &amp; arm64</small></a>
         </div>
         <p class="note">Not notarized yet: on first launch macOS refuses it. Open <b>System Settings → Privacy &amp; Security</b> and click <b>Open Anyway</b> — or install from Terminal:</p>
         <pre class="snip">curl -fsSL -o /tmp/Marionette.zip https://github.com/qar/figma-marionette/releases/latest/download/Marionette-macos.zip &amp;&amp; ditto -xk /tmp/Marionette.zip /Applications &amp;&amp; open -a Marionette<button class="copy" type="button">Copy</button></pre>
+        <p class="note">Linux: unpack and run <code>./marionette/install.sh</code>. Needs WebKitGTK 4.1 (<code>libwebkit2gtk-4.1-0</code>).</p>
       </div>
       <div class="card">
         <h3><span class="n">2</span>Import the Figma plugin</h3>
@@ -395,6 +396,7 @@ figma.currentPage.<span class="fn">appendChild</span>(card);
       <details class="faq"><summary>Does it only work with Claude Code?</summary><p>No. Claude Code gets a ready-made skill, but any agent or script that can make an HTTP request — Cursor, Codex, your own tooling — can POST to <code>127.0.0.1:3055/run</code>.</p></details>
       <details class="faq"><summary>Why does macOS say it can't verify the app?</summary><p>The app is signed ad hoc, not notarized by Apple yet. Use <b>Open Anyway</b> in Privacy &amp; Security, or the Terminal install line, which doesn't trigger the prompt. The source and the release build pipeline are public.</p></details>
       <details class="faq"><summary>Does it replace the official Figma MCP?</summary><p>For anything that touches the canvas, yes. Keep the official MCP for cloud-only features Marionette can't reach: searching team libraries, Code Connect and creating new files.</p></details>
+      <details class="faq"><summary>Does it run on Windows and Linux?</summary><p>Yes — the same window on both. On Linux it needs WebKitGTK 4.1, and since Figma has no official Linux app you need a desktop client that runs development plugins, such as the unofficial <a href="https://github.com/Figma-Linux/figma-linux">figma-linux</a>. The Windows build is new and still experimental.</p></details>
       <details class="faq"><summary>Which file does it edit?</summary><p>The file that is open in Figma desktop with the Marionette plugin running. Keep the plugin panel open while your agent works.</p></details>
       <details class="faq"><summary>What does it cost?</summary><p>Nothing. Marionette is MIT-licensed and works with any Figma plan that can run development plugins in Figma desktop.</p></details>
     </div>
@@ -406,7 +408,7 @@ figma.currentPage.<span class="fn">appendChild</span>(card);
     <h2>Take the <em>strings</em>.</h2>
     <p>Download the app, run the plugin once, and let your agent design.</p>
     <div class="ctas">
-      <a class="btn primary" href="https://github.com/qar/figma-marionette/releases/latest/download/Marionette-macos.zip">Download for macOS</a>
+      <a class="btn primary" data-dl href="https://github.com/qar/figma-marionette/releases/latest/download/Marionette-macos.zip"><span class="dl-label">Download for macOS</span></a>
       <a class="btn ghost" href="https://github.com/qar/figma-marionette">Star on GitHub</a>
     </div>
   </div>
@@ -421,6 +423,18 @@ figma.currentPage.<span class="fn">appendChild</span>(card);
 </footer>
 
 <script>
+  // Point the main download buttons at the visitor's platform.
+  (function () {
+    var ua = navigator.userAgent, base = "https://github.com/qar/figma-marionette/releases/latest/download/", pick = null;
+    if (/Windows/.test(ua)) pick = ["Download for Windows", "Marionette-windows-amd64.zip"];
+    else if (/Linux/.test(ua) && !/Android/.test(ua)) pick = ["Download for Linux", "marionette-linux-" + (/aarch64|arm64/i.test(ua) ? "arm64" : "amd64") + ".tar.gz"];
+    if (!pick) return;
+    document.querySelectorAll("[data-dl]").forEach(function (a) {
+      a.href = base + pick[1];
+      a.querySelector(".dl-label").textContent = pick[0];
+    });
+  })();
+
   document.querySelectorAll(".snip .copy").forEach(function (btn) {
     btn.addEventListener("click", function () {
       var text = btn.parentElement.textContent.replace(/Copy(ed)?$/, "").trim();
