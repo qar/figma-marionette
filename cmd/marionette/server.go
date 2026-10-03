@@ -487,7 +487,11 @@ func (b *bridge) handleStatus(w http.ResponseWriter, r *http.Request) {
 	b.mu.Unlock()
 
 	_, err := os.Stat(b.skillPath)
+	figma := figmaSettingsPath()
+	_, figmaErr := os.Stat(figma)
 	writeJSON(w, http.StatusOK, map[string]any{
+		"figma_found":      figmaErr == nil,
+		"figma_registered": figmaErr == nil && figmaRegistered(figma, b.pluginDir),
 		"version":          version,
 		"port":             b.port,
 		"os":               goos,

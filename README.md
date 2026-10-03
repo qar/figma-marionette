@@ -36,7 +36,9 @@ curl -fsSL -o /tmp/Marionette.zip https://github.com/qar/figma-marionette/releas
 
 ### 2. The Figma plugin (once)
 
-In the Marionette window, open **Setup** → **Show in Finder** (**Show in Explorer** on Windows). Then in **Figma desktop**: Plugins → Development → Import plugin from manifest… → pick that `manifest.json`.
+In the Marionette window, open **Setup** and click **Add to Figma**. Marionette adds its plugin to Figma desktop's list of development plugins; if Figma is open it offers to restart it, since Figma only reads that list at startup. (It edits Figma's `settings.json` — an undocumented format — after backing it up next to the original.)
+
+If that doesn't work, use **Add it manually instead**: in Figma desktop, Plugins → Development → Import plugin from manifest…, then in the file picker press ⌘⇧G (macOS) or paste into the File name box (Windows) the path the window shows.
 
 From then on, run **Plugins → Development → Marionette** once per Figma session and leave its panel open. The app window turns green when it connects.
 

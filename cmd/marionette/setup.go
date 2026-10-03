@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	marionette "github.com/qar/figma-marionette"
 )
@@ -88,6 +90,68 @@ func skillPath() string {
 // actions are bound into the window as JS functions.
 type actions struct {
 	pluginDir string
+
+	mu         sync.Mutex
+	figmaState string // "", "working", "added", or "error: ..."
+}
+
+// addToFigma adds the plugin to Figma desktop. While Figma is open it only
+// answers "figma-running", unless restart is set: then Marionette quits Figma,
+// edits its settings and reopens it. That runs in the background, since a
+// bound function blocks the window; poll figmaProgress for the outcome.
+func (a *actions) addToFigma(restart bool) (string, error) {
+	settings := figmaSettingsPath()
+	if _, err := os.Stat(settings); err != nil {
+		return "", errors.New("Figma desktop was not found on this computer")
+	}
+	running := figmaRunning()
+	if running && !restart {
+		return "figma-running", nil
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.figmaState != "working" {
+		a.figmaState = "working"
+		go func() {
+			state := "added"
+			if err := a.registerWithFigma(settings, running); err != nil {
+				state = "error: " + err.Error()
+			}
+			a.mu.Lock()
+			a.figmaState = state
+			a.mu.Unlock()
+		}()
+	}
+	return "working", nil
+}
+
+func (a *actions) figmaProgress() string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.figmaState
+}
+
+func (a *actions) registerWithFigma(settings string, reopen bool) error {
+	if reopen {
+		if err := quitFigma(); err != nil {
+			return fmt.Errorf("quitting Figma: %w", err)
+		}
+		deadline := time.Now().Add(30 * time.Second)
+		for figmaRunning() {
+			if time.Now().After(deadline) {
+				return errors.New("Figma did not quit. Save your work, quit Figma yourself, then try again")
+			}
+			time.Sleep(300 * time.Millisecond)
+		}
+		time.Sleep(time.Second) // let Figma's last settings write land
+	}
+	if _, err := registerFigmaPlugin(settings, a.pluginDir, time.Now()); err != nil {
+		return err
+	}
+	if reopen {
+		return launchFigma()
+	}
+	return nil
 }
 
 func (a *actions) revealPlugin() error {

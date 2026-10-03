@@ -33,6 +33,8 @@ func runWindow(url string, a *actions) {
 	w.Bind("installSkill", a.installSkill)
 	w.Bind("openURL", a.openURL)
 	w.Bind("copyText", a.copyText)
+	w.Bind("addToFigma", a.addToFigma)
+	w.Bind("figmaProgress", a.figmaProgress)
 	w.Navigate(url)
 	w.Run()
 }

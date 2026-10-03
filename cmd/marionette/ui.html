@@ -47,6 +47,11 @@
   button.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
   .note { font-size: 12px; color: var(--ok); margin-top: 4px; }
   .note.err { color: var(--accent); }
+  .note.muted { color: var(--muted); }
+  details.manual { margin-top: 8px; }
+  details.manual > summary { font-size: 12px; color: var(--muted); }
+  details.manual > summary::after { margin-left: 6px; }
+  details.manual p { margin-top: 6px; }
   #jobs { list-style: none; margin: 0; padding: 0; }
   #jobs li { display: grid; grid-template-columns: 16px 1fr auto; gap: 2px 8px; padding: 6px 0; border-top: 1px solid var(--line); }
   #jobs li:first-child { border-top: 0; }
@@ -55,7 +60,7 @@
   .sum { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .meta { color: var(--muted); font-size: 11px; white-space: nowrap; }
   .err { grid-column: 2 / 4; color: var(--accent); font-size: 12px; word-break: break-word; -webkit-user-select: text; user-select: text; }
-  .empty { color: var(--muted); padding: 4px 0; }
+  #jobs li.empty { display: block; color: var(--muted); padding: 4px 0; }
   footer { display: flex; gap: 12px; color: var(--muted); font-size: 11.5px; padding-top: 2px; }
   footer a { color: inherit; }
   footer .keep { margin-right: auto; }
@@ -90,10 +95,22 @@
   <div class="step">
     <span class="num" id="n1">1</span>
     <div>
-      <b>Import the Figma plugin <span style="font-weight:400;color:var(--muted)">(once)</span></b>
-      <p>Figma desktop → Plugins → Development → Import plugin from manifest…</p>
-      <span class="path" id="manifest"></span>
-      <div class="btns"><button id="reveal" class="primary"></button><button id="copypath">Copy path</button></div>
+      <b>Add the plugin to Figma <span style="font-weight:400;color:var(--muted)">(once)</span></b>
+      <div id="figadd">
+        <p>Marionette adds its plugin to Figma desktop for you.</p>
+        <div class="btns"><button id="addfig" class="primary">Add to Figma</button></div>
+      </div>
+      <div id="figconfirm" hidden>
+        <p>Figma is open and has to restart to pick up the plugin. Your files are saved in the cloud.</p>
+        <div class="btns"><button id="restartfig" class="primary">Restart Figma and add</button><button id="cancelfig">Cancel</button></div>
+      </div>
+      <div class="note" id="fignote" hidden></div>
+      <details class="manual" id="manual">
+        <summary>Add it manually instead</summary>
+        <p>Figma desktop → Plugins → Development → Import plugin from manifest…, then <span id="pickhint">pick this file</span>:</p>
+        <span class="path" id="manifest"></span>
+        <div class="btns"><button id="copypath">Copy path</button><button id="reveal"></button></div>
+      </details>
     </div>
   </div>
   <div class="step">
@@ -149,6 +166,49 @@
   $("copypath").addEventListener("click", async (e) => { await copy($("manifest").textContent); flash(e.target, "Copied"); });
   $("copycurl").addEventListener("click", async (e) => { await copy($("curl").textContent); flash(e.target, "Copied"); });
   $("reveal").addEventListener("click", () => window.revealPlugin());
+
+  // Adding to Figma runs in the app's background; poll until it settles.
+  let figBusy = false;
+  const figNote = (text, kind) => {
+    const note = $("fignote");
+    note.hidden = !text;
+    note.className = "note" + (kind ? " " + kind : "");
+    note.textContent = text || "";
+  };
+  async function startFigmaAdd(restart) {
+    $("figconfirm").hidden = true;
+    let r;
+    try {
+      r = await window.addToFigma(restart);
+    } catch (err) {
+      figNote(String(err), "err");
+      $("manual").open = true;
+      return;
+    }
+    if (r === "figma-running") {
+      $("figadd").hidden = true;
+      $("figconfirm").hidden = false;
+      return;
+    }
+    figBusy = true;
+    $("figadd").hidden = true;
+    figNote(restart ? "Restarting Figma…" : "Adding…", "muted");
+    const poll = setInterval(async () => {
+      const state = await window.figmaProgress();
+      if (state === "working") return;
+      clearInterval(poll);
+      figBusy = false;
+      if (state !== "added") {
+        $("figadd").hidden = false;
+        figNote(state.replace(/^error: /, "") + " — or add it manually below.", "err");
+        $("manual").open = true;
+      }
+      tick();
+    }, 500);
+  }
+  $("addfig").addEventListener("click", () => startFigmaAdd(false));
+  $("restartfig").addEventListener("click", () => startFigmaAdd(true));
+  $("cancelfig").addEventListener("click", () => { $("figconfirm").hidden = true; $("figadd").hidden = false; });
   $("skill").addEventListener("click", async () => {
     const note = $("skillnote");
     note.hidden = false;
@@ -162,6 +222,7 @@
     }
   });
   if (!has("revealPlugin")) $("reveal").hidden = true;
+  if (!has("addToFigma")) { $("figadd").hidden = true; $("manual").open = true; }
   if (!has("installSkill")) $("skill").parentElement.innerHTML = "<span class='path'>Copy skills/figma-marionette/SKILL.md into ~/.claude/skills/figma-marionette/</span>";
 
   const ago = (ms) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -217,11 +278,28 @@
     $("fighint").hidden = s.plugin_connected;
     $("manifest").textContent = s.plugin_manifest;
     $("curl").textContent = "curl -sS --data-binary @script.js 'http://127.0.0.1:" + s.port + "/run?wait=90'";
-    $("n1").classList.toggle("done", s.plugin_connected);
+    $("n1").classList.toggle("done", s.plugin_connected || s.figma_registered);
+    if (!figBusy && has("addToFigma")) {
+      if (s.figma_registered) {
+        $("figadd").hidden = true;
+        $("figconfirm").hidden = true;
+        figNote("Added. In Figma: Plugins → Development → Marionette.");
+      } else if (!s.figma_found) {
+        $("figadd").hidden = true;
+        figNote("Figma desktop wasn't found — add the plugin manually:", "muted");
+        $("manual").open = true;
+      } else if ($("figconfirm").hidden) {
+        $("figadd").hidden = false;
+        if ($("fignote").className.indexOf("err") < 0) figNote("");
+      }
+    }
     $("n2").classList.toggle("done", s.skill_installed);
     if (first) {
       $("reveal").textContent = s.os === "darwin" ? "Show in Finder" : s.os === "windows" ? "Show in Explorer" : "Open folder";
-      $("setup").open = !(s.plugin_connected && s.skill_installed);
+      $("pickhint").textContent = s.os === "darwin"
+        ? "in the file picker press ⌘⇧G, paste this path and press Return"
+        : s.os === "windows" ? "paste this path into the File name box and press Enter" : "pick this file";
+      $("setup").open = !((s.plugin_connected || s.figma_registered) && s.skill_installed);
       first = false;
     }
     renderJobs(s.jobs);

@@ -36,7 +36,7 @@ Requests to localhost may need the command sandbox disabled.
   ```
 
   On Windows, point the user to https://marionette.otimififi.site.
-- **504 with `"state": "expired"`** → the app is up but the Figma plugin is not connected. Ask the user to run it in Figma desktop: *Plugins → Development → Marionette*, and leave its panel open. First time only: the Marionette window's **Setup** section shows the `manifest.json` to import (*Plugins → Development → Import plugin from manifest…*).
+- **504 with `"state": "expired"`** → the app is up but the Figma plugin is not connected. Ask the user to run it in Figma desktop: *Plugins → Development → Marionette*, and leave its panel open. First time only: in the Marionette window's **Setup** section, click **Add to Figma** (it restarts Figma once).
 - Check any time: `curl -sS --noproxy '*' http://127.0.0.1:3055/health` → `plugin_connected`.
 
 Never ask the user to start a server or run a terminal command — the app window is the whole setup.

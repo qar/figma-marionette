@@ -257,7 +257,7 @@
   <div class="wrap">
     <p class="kicker">Install</p>
     <h2>Five minutes, <em>once</em>.</h2>
-    <p class="intro">After the first setup, using Marionette is just: open the app, open the plugin in Figma, talk to your agent.</p>
+    <p class="intro">After the first setup, using Marionette is just: open the app, run the plugin in Figma, talk to your agent.</p>
     <div class="install">
       <div class="card">
         <h3><span class="n">1</span>Get the app</h3>
@@ -269,10 +269,10 @@
         <pre class="snip">curl -fsSL -o /tmp/Marionette.zip https://github.com/qar/figma-marionette/releases/latest/download/Marionette-macos.zip &amp;&amp; ditto -xk /tmp/Marionette.zip /Applications &amp;&amp; open -a Marionette<button class="copy" type="button">Copy</button></pre>
       </div>
       <div class="card">
-        <h3><span class="n">2</span>Import the Figma plugin</h3>
-        <p>In the Marionette window, open <b>Setup</b> and click <kbd>Show in Finder</kbd> (<kbd>Show in Explorer</kbd> on Windows). Then in Figma desktop:</p>
-        <p><kbd>Plugins</kbd> → <kbd>Development</kbd> → <kbd>Import plugin from manifest…</kbd> and pick that <code>manifest.json</code>.</p>
+        <h3><span class="n">2</span>Add the Figma plugin</h3>
+        <p>In the Marionette window, open <b>Setup</b> and click <kbd>Add to Figma</kbd>. If Figma is open, Marionette restarts it once so it picks the plugin up.</p>
         <p>From then on, run <b>Plugins → Development → Marionette</b> and leave its panel open. The app turns green when it connects.</p>
+        <p class="note">Prefer to do it yourself? <b>Add it manually instead</b> in the same section shows the <code>manifest.json</code> to import via Plugins → Development → Import plugin from manifest….</p>
       </div>
       <div class="card">
         <h3><span class="n">3</span>Connect your agent</h3>
