@@ -34,6 +34,10 @@ curl -fsSL -o /tmp/Marionette.zip https://github.com/qar/figma-marionette/releas
   && ditto -xk /tmp/Marionette.zip /Applications && open -a Marionette
 ```
 
+#### Updates
+
+Marionette looks for a newer release on GitHub when it starts and once a day, and the window offers it when there is one (or click **Check for updates** next to the version). On macOS, **Update and restart** downloads the release, checks that it runs, swaps it in place of the app and restarts — no Gatekeeper prompt, since the app's own download is not quarantined. If macOS refuses to let it replace itself, the window says how to allow it (System Settings → Privacy & Security → App Management); on Windows it links to the download. Updating also refreshes the skill if the window installed it. Requests use the proxy environment variables, or else the macOS system proxy.
+
 ### 2. The Figma plugin (once)
 
 In the Marionette window, open **Setup** and click **Add to Figma**. Marionette adds its plugin to Figma desktop's list of development plugins; if Figma is open it offers to restart it, since Figma only reads that list at startup. (It edits Figma's `settings.json` — an undocumented format — after backing it up next to the original.)
@@ -111,6 +115,8 @@ Scripts run with full access to the open Figma file. The bridge therefore:
 - rejects requests whose `Host` is not `127.0.0.1`/`localhost` (blocks DNS rebinding);
 - rejects browser requests (`Origin` / `Sec-Fetch-Site` headers) on the agent endpoints (`/run`, `GET /result`), so web pages cannot submit scripts — only local tools like curl can;
 - admits only the plugin it extracted on the plugin endpoints (`/pull`, `POST /result`): each install generates a random token that is written into the plugin files, so a web page cannot read queued scripts or forge results.
+
+The app's only outbound requests are the update checks and downloads, to `github.com` and GitHub's download host.
 
 A script whose plugin stops responding for 15 seconds (panel closed, `figma.closePlugin()`) is failed rather than left hanging.
 

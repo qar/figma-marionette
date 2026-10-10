@@ -3,6 +3,7 @@ package main
 // Setup helpers behind the buttons in the status window.
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -90,6 +91,7 @@ func skillPath() string {
 // actions are bound into the window as JS functions.
 type actions struct {
 	pluginDir string
+	updates   *updater
 
 	mu         sync.Mutex
 	figmaState string // "", "working", "added", or "error: ..."
@@ -180,6 +182,30 @@ func (a *actions) installSkill() (string, error) {
 		return "", fmt.Errorf("writing skill: %w", err)
 	}
 	return path, nil
+}
+
+// refreshSkill rewrites an installed skill that an earlier version of the app
+// put there, so agents learn about what this version can do. A symlink is
+// someone's own arrangement (a repo checkout, say) and is left alone.
+func refreshSkill(path string) error {
+	if info, err := os.Lstat(path); err != nil || info.Mode()&os.ModeSymlink != 0 {
+		return nil
+	}
+	old, err := os.ReadFile(path)
+	if err != nil || bytes.Equal(old, marionette.Skill) {
+		return nil
+	}
+	return os.WriteFile(path, marionette.Skill, 0o644)
+}
+
+// checkUpdates and installUpdate run in the background, since a bound
+// function blocks the window; /status reports how they went.
+func (a *actions) checkUpdates() {
+	go a.updates.check()
+}
+
+func (a *actions) installUpdate() {
+	go a.updates.install()
 }
 
 func (a *actions) openURL(url string) error {

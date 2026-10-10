@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"time"
 )
 
 var (
@@ -31,6 +32,7 @@ var (
 func main() {
 	headless := flag.Bool("headless", false, "run without a window until interrupted")
 	showVersion := flag.Bool("version", false, "print the version and exit")
+	relaunched := flag.Bool("relaunch", false, "started by an update: wait for the old copy to free the port")
 	flag.Parse()
 	if *showVersion {
 		fmt.Println(version)
@@ -73,8 +75,15 @@ func main() {
 		fail("Cannot write the Figma plugin files: %v", err)
 	}
 	b.skillPath = skillPath()
+	if err := refreshSkill(b.skillPath); err != nil {
+		log.Printf("updating the installed skill: %v", err)
+	}
 
 	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	for wait := 10 * time.Second; err != nil && *relaunched && wait > 0; wait -= 200 * time.Millisecond {
+		time.Sleep(200 * time.Millisecond)
+		ln, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	}
 	if err != nil {
 		fail("Port %d is already in use — Marionette is probably already running. Close the other window, or set MARIONETTE_PORT to a free port.", port)
 	}
@@ -87,7 +96,11 @@ func main() {
 		waitForInterrupt()
 		return
 	}
-	runWindow(url, &actions{pluginDir: b.pluginDir})
+	exe, _ := os.Executable()
+	exe, _ = filepath.EvalSymlinks(exe)
+	b.updates = newUpdater(version, appBundle(exe))
+	go b.updates.run()
+	runWindow(url, &actions{pluginDir: b.pluginDir, updates: b.updates})
 }
 
 func errorPage(msg string) string {

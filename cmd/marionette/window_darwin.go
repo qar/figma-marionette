@@ -15,6 +15,8 @@ func runWindow(url string, a *actions) {
 	w.Bind("copyText", a.copyText)
 	w.Bind("addToFigma", a.addToFigma)
 	w.Bind("figmaProgress", a.figmaProgress)
+	w.Bind("checkUpdates", a.checkUpdates)
+	w.Bind("installUpdate", a.installUpdate)
 	w.Navigate(url)
 	w.Run()
 }

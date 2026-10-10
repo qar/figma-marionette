@@ -102,6 +102,7 @@ type bridge struct {
 	skillPath string
 	maxResult int64
 	started   time.Time
+	updates   *updater // nil without a window
 
 	mu      sync.Mutex
 	queue   []*job
@@ -673,6 +674,10 @@ func (b *bridge) handleStatus(w http.ResponseWriter, r *http.Request) {
 	_, err := os.Stat(b.skillPath)
 	figma := figmaSettingsPath()
 	_, figmaErr := os.Stat(figma)
+	var update map[string]any
+	if b.updates != nil {
+		update = b.updates.view()
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"figma_found":      figmaErr == nil,
 		"figma_registered": figmaErr == nil && figmaRegistered(figma, b.pluginDir),
@@ -685,6 +690,7 @@ func (b *bridge) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"skill_path":       b.skillPath,
 		"skill_installed":  b.skillPath != "" && err == nil,
 		"jobs":             jobs,
+		"update":           update,
 	})
 }
 

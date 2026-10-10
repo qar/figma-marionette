@@ -22,6 +22,9 @@
   header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
   header h1 { font: 600 22px/1 ui-serif, "New York", Georgia, serif; letter-spacing: -0.01em; margin: 0; }
   header .ver { margin-left: auto; color: var(--muted); font-size: 11px; }
+  header .ver a { color: inherit; }
+  .card.update { border-color: var(--accent); }
+  .card.update p { margin: 2px 0 0; color: var(--muted); }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
   h2 { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
   .row { display: flex; align-items: baseline; gap: 8px; padding: 3px 0; }
@@ -84,9 +87,15 @@
     <g fill="var(--paper)"><rect x="15" y="36" width="4" height="4"/><rect x="45" y="36" width="4" height="4"/><rect x="15" y="52" width="4" height="4"/><rect x="45" y="52" width="4" height="4"/></g>
   </svg>
   <h1>Marionette</h1>
-  <span class="ver" id="ver"></span>
+  <span class="ver"><span id="ver"></span><span id="checkwrap" hidden> · <a href="#" id="check">Check for updates</a></span></span>
 </header>
 
+<section class="card update" id="update" hidden>
+  <b id="updtitle"></b>
+  <p id="updtext"></p>
+  <div class="btns"><button id="updinstall" class="primary"></button><button id="updnotes">What's new</button><button id="updlater">Later</button></div>
+  <div class="note err" id="upderr" hidden></div>
+</section>
 
 <section class="card">
   <h2>Status</h2>
@@ -164,10 +173,11 @@
     setTimeout(() => (btn.textContent = old), 1200);
   };
 
+  const openLink = (url) => (has("openURL") ? window.openURL(url) : window.open(url, "_blank"));
   document.querySelectorAll("[data-href]").forEach((a) =>
     a.addEventListener("click", (e) => {
       e.preventDefault();
-      has("openURL") ? window.openURL(a.dataset.href) : window.open(a.dataset.href, "_blank");
+      openLink(a.dataset.href);
     })
   );
   $("copypath").addEventListener("click", async (e) => { await copy($("manifest").textContent); flash(e.target, "Copied"); });
@@ -228,6 +238,53 @@
       note.textContent = "Install failed: " + err;
     }
   });
+  // Updates: the app checks by itself; "Check for updates" reports back here.
+  let update = null;
+  let manualCheck = -1; // update.checks when the user asked, until it moves
+  let dismissed = "";
+  const checkLink = (text) => ($("check").textContent = text);
+  $("check").addEventListener("click", (e) => {
+    e.preventDefault();
+    if (!update || update.state) return;
+    manualCheck = update.checks;
+    dismissed = "";
+    checkLink("Checking…");
+    window.checkUpdates();
+  });
+  const canInstall = () => update.can_install && has("installUpdate");
+  $("updnotes").addEventListener("click", () => openLink(update.url));
+  $("updlater").addEventListener("click", () => { dismissed = update.latest; $("update").hidden = true; });
+  $("updinstall").addEventListener("click", () => {
+    if (!canInstall()) return openLink(update.url);
+    $("updinstall").textContent = "Updating…";
+    $("upderr").hidden = true;
+    window.installUpdate();
+  });
+
+  function renderUpdate(u) {
+    update = u;
+    $("checkwrap").hidden = !u || !u.enabled || !has("checkUpdates");
+    if (!u) return;
+    if (manualCheck >= 0 && u.checks > manualCheck && !u.state) {
+      manualCheck = -1;
+      checkLink(u.check_error ? "Couldn't check" : u.available ? "Check for updates" : "Up to date");
+      $("check").title = u.check_error;
+      setTimeout(() => { checkLink("Check for updates"); $("check").title = ""; }, 4000);
+    }
+    const show = u.available && (u.latest !== dismissed || u.state === "installing");
+    $("update").hidden = !show;
+    if (!show) return;
+    $("updtitle").textContent = "Marionette " + u.latest + " is available";
+    $("updtext").textContent = canInstall()
+      ? "Updating restarts Marionette and interrupts a script that is running. Figma reconnects by itself; reopen the plugin there if it asks."
+      : "Download it and replace this copy of Marionette.";
+    $("updinstall").textContent = u.state === "installing" ? "Updating…" : u.state === "restarting" ? "Restarting…" : canInstall() ? "Update and restart" : "Download";
+    $("updinstall").disabled = !!u.state;
+    $("updlater").hidden = !!u.state;
+    $("upderr").hidden = !u.install_error;
+    $("upderr").textContent = u.install_error;
+  }
+
   if (!has("revealPlugin")) $("reveal").hidden = true;
   if (!has("addToFigma")) { $("figadd").hidden = true; $("manual").open = true; }
   if (!has("installSkill")) $("skill").parentElement.innerHTML = "<span class='path'>Copy skills/figma-marionette/SKILL.md into ~/.claude/skills/figma-marionette/</span>";
@@ -335,6 +392,7 @@
       $("setup").open = !((s.plugin_connected || s.figma_registered) && s.skill_installed);
       first = false;
     }
+    renderUpdate(s.update);
     renderJobs(s.jobs, s.files.length > 1 || new Set(s.jobs.map((j) => j.file).filter(Boolean)).size > 1);
   }
 
