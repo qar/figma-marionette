@@ -182,9 +182,9 @@
 
 <section class="hero" id="top">
   <div class="wrap">
-    <span class="eyebrow"><b>New</b> A desktop app for AI agents</span>
+    <span class="eyebrow"><b>New in 0.4</b> Choose the file · update in place</span>
     <h1>Pull Figma's <em>strings</em><br>from your AI agent.</h1>
-    <p class="lede">Marionette is a small desktop app that lets your AI agent work directly in the Figma file you have open, through the full Figma Plugin&nbsp;API — with no monthly call limit.</p>
+    <p class="lede">Marionette is a small desktop app that lets your AI agent work directly in the Figma files you have open, through the full Figma Plugin&nbsp;API — with no monthly call limit.</p>
     <div class="ctas">
       <a class="btn primary" data-dl href="https://github.com/qar/figma-marionette/releases/latest/download/Marionette-macos.zip">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
@@ -192,13 +192,13 @@
       </a>
       <a class="btn ghost" href="#install">Other platforms &amp; setup</a>
     </div>
-    <p class="fine">Free and open source (MIT) · macOS &amp; Windows · <a href="https://github.com/qar/figma-marionette">Source on GitHub</a></p>
+    <p class="fine">Latest release <a data-version href="https://github.com/qar/figma-marionette/releases/tag/v0.4.0">v0.4.0</a> · Free and open source (MIT) · macOS &amp; Windows · <a href="https://github.com/qar/figma-marionette">Source on GitHub</a></p>
 
     <div class="features">
       <div class="feature">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
         <h3>Build and edit</h3>
-        <p>Your agent creates and changes frames, components, text and styles in the open file.</p>
+        <p>Your agent creates and changes frames, components, text and styles — in the file you choose.</p>
       </div>
       <div class="feature">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -245,7 +245,7 @@
     <div class="steps">
       <div class="step"><span class="n">1</span><h3>Your agent sends a script</h3><p>Plain JavaScript against the Figma Plugin API, POSTed to <code>127.0.0.1:3055/run</code>. Claude Code does this on its own once the skill is installed.</p></div>
       <div class="step"><span class="n">2</span><h3>Marionette holds the line</h3><p>The app queues the script and shows it in its window, along with whether the Figma plugin is connected.</p></div>
-      <div class="step"><span class="n">3</span><h3>Figma performs it</h3><p>The Marionette plugin runs the script inside the file you have open. The return value and any screenshots flow straight back.</p></div>
+      <div class="step"><span class="n">3</span><h3>Figma performs it</h3><p>The Marionette plugin runs the script inside the file it is meant for. The return value, the file's name and any screenshots flow straight back.</p></div>
     </div>
 <pre class="diagram"><span class="m">AI agent</span>                         <span class="m">Marionette app</span>                  <span class="m">Figma desktop</span>
   curl POST /run?wait=90  <span class="a">──▶</span>   127.0.0.1:3055   <span class="a">◀──</span> GET /pull (every 500ms) <span class="a">──</span>  Marionette plugin
@@ -267,11 +267,12 @@
         </div>
         <p class="note">Not notarized yet: on first launch macOS refuses it. Open <b>System Settings → Privacy &amp; Security</b> and click <b>Open Anyway</b> — or install from Terminal:</p>
         <pre class="snip">curl -fsSL -o /tmp/Marionette.zip https://github.com/qar/figma-marionette/releases/latest/download/Marionette-macos.zip &amp;&amp; ditto -xk /tmp/Marionette.zip /Applications &amp;&amp; open -a Marionette<button class="copy" type="button">Copy</button></pre>
+        <p>After that, the app keeps itself current: its window offers each new release, and on macOS one click installs it and restarts.</p>
       </div>
       <div class="card">
         <h3><span class="n">2</span>Add the Figma plugin</h3>
         <p>In the Marionette window, open <b>Setup</b> and click <kbd>Add to Figma</kbd>. If Figma is open, Marionette restarts it once so it picks the plugin up.</p>
-        <p>From then on, run <b>Plugins → Development → Marionette</b> and leave its panel open. The app turns green when it connects.</p>
+        <p>From then on, run <b>Plugins → Development → Marionette</b> in each file your agent should reach, and leave its panel open. The app turns green when it connects.</p>
         <p class="note">Prefer to do it yourself? <b>Add it manually instead</b> in the same section shows the <code>manifest.json</code> to import via Plugins → Development → Import plugin from manifest….</p>
       </div>
       <div class="card">
@@ -337,7 +338,8 @@ figma.currentPage.<span class="fn">appendChild</span>(card);
       <p class="kicker">Safety</p>
       <h2>Local, and <em>only</em> local.</h2>
       <ul class="ticks">
-        <li><div><b>Listens on 127.0.0.1 only</b><span>Nothing leaves your machine; there is no account and no cloud service.</span></div></li>
+        <li><div><b>Listens on 127.0.0.1 only</b><span>Your designs and scripts never leave your machine; there is no account and no cloud service. The app's only outbound requests are its update checks, to GitHub.</span></div></li>
+        <li><div><b>Never the wrong file</b><span>With the plugin open in several files, a script has to name its file or it doesn't run — and every result says which file it changed.</span></div></li>
         <li><div><b>Web pages can't pull the strings</b><span>Requests from browsers are refused, and so are foreign host names — a website you visit cannot drive your Figma.</span></div></li>
         <li><div><b>Errors are atomic</b><span>A script that throws leaves the file untouched; your agent reads the error and tries again.</span></div></li>
         <li><div><b>Close the window, cut the strings</b><span>Quitting the app stops the bridge. Nothing runs in the background.</span></div></li>
@@ -346,10 +348,11 @@ figma.currentPage.<span class="fn">appendChild</span>(card);
     <div>
       <p class="kicker">FAQ</p>
       <details class="faq"><summary>Does it only work with Claude Code?</summary><p>No. Claude Code gets a ready-made skill, but any agent or script that can make an HTTP request — Cursor, Codex, your own tooling — can POST to <code>127.0.0.1:3055/run</code>.</p></details>
-      <details class="faq"><summary>Why does macOS say it can't verify the app?</summary><p>The app is signed ad hoc, not notarized by Apple yet. Use <b>Open Anyway</b> in Privacy &amp; Security, or the Terminal install line, which doesn't trigger the prompt. The source and the release build pipeline are public.</p></details>
+      <details class="faq"><summary>Why does macOS say it can't verify the app?</summary><p>The app is signed ad hoc, not notarized by Apple yet. Use <b>Open Anyway</b> in Privacy &amp; Security, or the Terminal install line, which doesn't trigger the prompt — and neither do updates installed from the app's window. The source and the release build pipeline are public.</p></details>
       <details class="faq"><summary>Does it replace the official Figma MCP?</summary><p>For anything that touches the canvas, yes. Keep the official MCP for cloud-only features Marionette can't reach: searching team libraries, Code Connect and creating new files.</p></details>
       <details class="faq"><summary>Does it run on Windows?</summary><p>Yes — the same window, on Microsoft Edge WebView2 (built into Windows 11 and current Windows 10). The Windows build is new and still experimental. Linux isn't supported, since Figma has no official Linux desktop app.</p></details>
-      <details class="faq"><summary>Which file does it edit?</summary><p>The file that is open in Figma desktop with the Marionette plugin running. Keep the plugin panel open while your agent works.</p></details>
+      <details class="faq"><summary>Which file does it edit?</summary><p>A file open in Figma desktop with the Marionette plugin running. Run the plugin in several files and your agent asks you which one to change (or follows the Figma link you gave it); the app window lists the connected files and what ran in each.</p></details>
+      <details class="faq"><summary>How do I update it?</summary><p>The app checks GitHub when it starts and once a day. When a new release is out, its window says so: on macOS, <b>Update and restart</b> installs it in place; on Windows, download it again from this page.</p></details>
       <details class="faq"><summary>What does it cost?</summary><p>Nothing. Marionette is MIT-licensed and works with any Figma plan that can run development plugins in Figma desktop.</p></details>
     </div>
   </div>
@@ -368,13 +371,24 @@ figma.currentPage.<span class="fn">appendChild</span>(card);
 
 <footer>
   <div class="wrap">
-    <span class="sp">Marionette · MIT License</span>
+    <span class="sp">Marionette <a data-version href="https://github.com/qar/figma-marionette/releases/tag/v0.4.0">v0.4.0</a> · MIT License</span>
     <a href="https://github.com/qar/figma-marionette/releases">Releases</a>
     <a href="https://github.com/qar/figma-marionette">GitHub</a>
   </div>
 </footer>
 
 <script>
+  // Show the newest release; the version written above is the fallback.
+  fetch("https://api.github.com/repos/qar/figma-marionette/releases/latest")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (rel) {
+      if (!rel || !/^v\d+\.\d+\.\d+$/.test(rel.tag_name)) return;
+      document.querySelectorAll("[data-version]").forEach(function (a) {
+        a.textContent = rel.tag_name;
+        a.href = rel.html_url;
+      });
+    })
+    .catch(function () {});
   // Point the main download buttons at the visitor's platform.
   (function () {
     var ua = navigator.userAgent, base = "https://github.com/qar/figma-marionette/releases/latest/download/", pick = null;
