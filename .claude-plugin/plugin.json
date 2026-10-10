@@ -1,7 +1,7 @@
 {
   "name": "figma-marionette",
   "description": "Marionette: unmetered read/write access to Figma from Claude Code, via a self-hosted local bridge plugin instead of the rate-limited official Figma MCP server.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": {
     "name": "qar",
     "url": "https://github.com/qar"
