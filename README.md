@@ -4,7 +4,7 @@
 
 Unmetered read/write access to Figma from an AI agent, through the **Figma Plugin API** — a self-hosted replacement for the write path of the official Figma MCP server, which allows only 20 tool calls per month on the Starter plan.
 
-Marionette is a small desktop app. Open it, run its Figma plugin once, and any agent on your machine can execute scripts against the Figma file you have open — creating, editing, inspecting and screenshotting — with nothing to start or configure in a terminal.
+Marionette is a small desktop app. Open it, run its Figma plugin once, and any agent on your machine can execute scripts against the Figma files you have open — creating, editing, inspecting and screenshotting — with nothing to start or configure in a terminal.
 
 ## How it works
 
@@ -40,7 +40,7 @@ In the Marionette window, open **Setup** and click **Add to Figma**. Marionette 
 
 If that doesn't work, use **Add it manually instead**: in Figma desktop, Plugins → Development → Import plugin from manifest…, then in the file picker press ⌘⇧G (macOS) or paste into the File name box (Windows) the path the window shows.
 
-From then on, run **Plugins → Development → Marionette** once per Figma session and leave its panel open. The app window turns green when it connects.
+From then on, run **Plugins → Development → Marionette** once per Figma session and leave its panel open. The app window turns green when it connects. Run it in each file you want your agent to reach; with several open, the window lists them, and agents have to say which one each script is for.
 
 ### 3. Your agent
 
@@ -63,10 +63,18 @@ curl -sS --data-binary @script.js 'http://127.0.0.1:3055/run?wait=90'
 
 | Request | Response |
 |---|---|
-| `POST /run?wait=N` — body: the script (or `{"code": "..."}` JSON) | `200 {ok: true, result, ms}` · `422 {ok: false, error, stack}` when the script throws · `504 {state: "expired"}` when the plugin never picked it up (the script is discarded) · `504 {state: "running"}` when it is still executing |
-| `POST /run` (no `wait`) | `{id}` |
+| `POST /run?wait=N&file=F` — body: the script (or `{"code": "..."}` JSON) | `200 {ok: true, result, ms, file}` · `422 {ok: false, error, stack, file}` when the script throws · `409 {state: "choose_file", files}` when it is unclear which file to run in (nothing ran) · `504 {state: "expired"}` when the plugin never picked it up (the script is discarded) · `504 {state: "running"}` when it is still executing |
+| `POST /run` (no `wait`) | `{id, file}` |
 | `GET /result?id=…&wait=N` | the outcome as above, or `200 {pending: true, state}` if the job hasn't finished within `wait` (polling never discards a job) |
-| `GET /health` | `{ok, version, plugin_connected, queued}` |
+| `GET /health` | `{ok, version, plugin_connected, files, queued}` |
+
+### Choosing the file
+
+Each Figma file running the plugin is listed in `files` as `{id, name, key, page}`: `id` is random per plugin run, `key` is the file key from its `figma.com/design/<key>/…` URL (present when Figma exposes it to the plugin), `name` the file name and `page` the page open in it. `file=` accepts any of `id`, `key` or `name`.
+
+- Without `file`, a script runs in the only open file. With several open it is refused with `409`, so it never lands in a guessed file; with none open it waits for the first file to connect.
+- With `file`, it runs in the one open file that matches, or is refused with `409` if none or several match.
+- Outcomes carry `file: {id, name}` — the file the script ran in.
 
 Any `{$png: base64}` value in a result — what `helpers.shot()` returns — is written to a PNG file under the system temp directory and replaced with its path.
 
@@ -123,7 +131,7 @@ Pushing a `v*` tag builds and publishes a GitHub release via `.github/workflows/
 
 ## Known limitations
 
-- The Figma plugin must stay open in Figma desktop; it operates on the **currently open file**
+- The Figma plugin must stay open in Figma desktop, in every file an agent should reach
 - Cloud-side features of the official MCP are out of scope: `search_design_system`, `get_libraries`, Code Connect, `create_new_file` (the last of those is exempt from the MCP rate limit anyway)
 - Results must be JSON-serializable — return node IDs, not node objects
 - The macOS app is ad-hoc signed, not notarized; the Windows build is untested on real hardware
@@ -132,8 +140,9 @@ Pushing a `v*` tag builds and publishes a GitHub release via `.github/workflows/
 ## Roadmap
 
 - [ ] Developer ID signing + notarization for macOS; Windows icon and signing
-- [ ] WebSocket instead of polling; multi-file / multi-job routing
-- [ ] Figma Community publishing: `networkAccess` declaration and an auth token
+- [x] Multi-file routing
+- [ ] WebSocket instead of polling; parallel jobs
+- [ ] Figma Community publishing: `networkAccess` declaration and an auth token; drop `enablePrivatePluginApi`, which public plugins may not set (files then match by id or name only)
 
 ## License
 

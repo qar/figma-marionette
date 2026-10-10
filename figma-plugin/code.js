@@ -59,7 +59,18 @@ const shot = async (node, scale = 1) => {
 
 const helpers = { hex, S, AL, T, SVG, shot };
 
+// The UI reports this file to the app on every poll, so agents can tell open
+// files apart and pick the one to change. fileKey needs enablePrivatePluginApi
+// and is only there for development and private plugins.
+const sendFile = () => {
+  let key = "";
+  try { key = figma.fileKey || ""; } catch (_) {}
+  figma.ui.postMessage({ type: "file", name: figma.root.name, key, page: figma.currentPage.name });
+};
+figma.on("currentpagechange", sendFile);
+
 figma.ui.onmessage = async (m) => {
+  if (m && m.type === "hello") return sendFile();
   if (!m || m.type !== "run") return;
   let out;
   try {
@@ -81,4 +92,5 @@ figma.ui.onmessage = async (m) => {
     };
   }
   figma.ui.postMessage(out);
+  sendFile(); // the script may have renamed the file or switched pages
 };

@@ -29,6 +29,9 @@
   .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--warn); transform: translateY(-1px); }
   .dot.ok { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 20%, transparent); }
   .hint { color: var(--muted); font-size: 12px; margin: 4px 0 0 16px; }
+  #files { list-style: none; margin: 0 0 2px 88px; padding: 0; }
+  #files li, .file { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #files .pg { color: var(--muted); }
   details > summary { cursor: pointer; list-style: none; display: flex; align-items: center; }
   details > summary::-webkit-details-marker { display: none; }
   details > summary h2 { margin: 0; }
@@ -60,6 +63,7 @@
   .sum { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .meta { color: var(--muted); font-size: 11px; white-space: nowrap; }
   .err { grid-column: 2 / 4; color: var(--accent); font-size: 12px; word-break: break-word; -webkit-user-select: text; user-select: text; }
+  .file { grid-column: 2 / 4; color: var(--muted); font-size: 11px; }
   #jobs li.empty { display: block; color: var(--muted); padding: 4px 0; }
   footer { display: flex; gap: 12px; color: var(--muted); font-size: 11.5px; padding-top: 2px; }
   footer a { color: inherit; }
@@ -83,11 +87,14 @@
   <span class="ver" id="ver"></span>
 </header>
 
+
 <section class="card">
   <h2>Status</h2>
   <div class="row"><span class="dot ok"></span><span class="k">Bridge</span><span id="bridge">Listening</span></div>
   <div class="row"><span class="dot" id="figdot"></span><span class="k">Figma</span><span id="fig">Waiting for the plugin…</span></div>
+  <ul id="files" hidden></ul>
   <div class="hint" id="fighint">In Figma desktop, run <b>Plugins → Development → Marionette</b> and leave its panel open.</div>
+  <div class="hint" id="multihint" hidden>Agents have to say which of these files a script changes.</div>
 </section>
 
 <details class="card" id="setup">
@@ -228,7 +235,27 @@
   const ago = (ms) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const dur = (ms) => (ms < 1000 ? ms + "ms" : (ms / 1000).toFixed(1) + "s");
 
-  function renderJobs(jobs) {
+  function renderFiles(files) {
+    const ul = $("files");
+    ul.replaceChildren();
+    $("fig").textContent = !files.length ? "Waiting for the plugin…"
+      : files.length === 1 ? "Connected · " + files[0].name
+      : files.length + " files connected";
+    ul.hidden = $("multihint").hidden = files.length < 2;
+    if (files.length < 2) return;
+    for (const f of files) {
+      const li = document.createElement("li");
+      const pg = document.createElement("span");
+      pg.className = "pg";
+      pg.textContent = " · " + f.page;
+      li.append(f.name, pg);
+      li.title = f.name + " · " + f.page;
+      ul.append(li);
+    }
+  }
+
+  // Each script's file is only worth a line once more than one is involved.
+  function renderJobs(jobs, showFile) {
     const ul = $("jobs");
     ul.replaceChildren();
     if (!jobs.length) {
@@ -245,7 +272,7 @@
       const meta = document.createElement("span");
       st.className = "st";
       if (j.state === "done" && j.ok) { st.classList.add("done"); st.textContent = "✓"; }
-      else if (j.state === "done" || j.state === "expired") { st.classList.add("fail"); st.textContent = "✕"; }
+      else if (j.state !== "queued" && j.state !== "running") { st.classList.add("fail"); st.textContent = "✕"; }
       else { st.classList.add("wait"); st.innerHTML = "<span class='spin'>◌</span>"; }
       sum.className = "sum";
       sum.textContent = j.summary;
@@ -253,6 +280,12 @@
       meta.className = "meta";
       meta.textContent = (j.state === "queued" ? "queued · " : j.state === "running" ? "running · " : j.ms ? dur(j.ms) + " · " : "") + ago(j.at);
       li.append(st, sum, meta);
+      if (showFile && j.file) {
+        const file = document.createElement("span");
+        file.className = "file";
+        file.textContent = j.file;
+        li.append(file);
+      }
       if (j.error) {
         const err = document.createElement("span");
         err.className = "err";
@@ -274,7 +307,7 @@
     $("ver").textContent = s.version;
     $("bridge").textContent = "Listening on 127.0.0.1:" + s.port;
     $("figdot").classList.toggle("ok", s.plugin_connected);
-    $("fig").textContent = s.plugin_connected ? "Plugin connected" : "Waiting for the plugin…";
+    renderFiles(s.files);
     $("fighint").hidden = s.plugin_connected;
     $("manifest").textContent = s.plugin_manifest;
     $("curl").textContent = "curl -sS --data-binary @script.js 'http://127.0.0.1:" + s.port + "/run?wait=90'";
@@ -302,7 +335,7 @@
       $("setup").open = !((s.plugin_connected || s.figma_registered) && s.skill_installed);
       first = false;
     }
-    renderJobs(s.jobs);
+    renderJobs(s.jobs, s.files.length > 1 || new Set(s.jobs.map((j) => j.file).filter(Boolean)).size > 1);
   }
 
   tick();

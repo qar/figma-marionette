@@ -5,7 +5,22 @@ description: Read and write Figma files with unlimited local script execution, v
 
 # Marionette
 
-Executes arbitrary Plugin API scripts against the Figma file the user currently has open, through the Marionette desktop app (a local server on `127.0.0.1:3055`) and its Figma plugin. Free, unmetered, and it round-trips screenshots — use it for **all** Figma canvas work.
+Executes arbitrary Plugin API scripts in a Figma file the user has open, through the Marionette desktop app (a local server on `127.0.0.1:3055`) and its Figma plugin. Free, unmetered, and it round-trips screenshots — use it for **all** Figma canvas work.
+
+## Pick the file first
+
+The user may run Marionette in several Figma files at once, and a script changes only the file it runs in. Before the first script of a task, list the open files:
+
+```bash
+curl -sS --noproxy '*' http://127.0.0.1:3055/health
+# → {"files": [{"id": "3f9a1c2e", "name": "MM-Test", "key": "AbC123xYz", "page": "Home"}, …], …}
+```
+
+- **One file** — tell the user which file (and page) you are about to change, then go ahead.
+- **Several files** — ask the user which one to change, listing each name and page. Don't guess, even when one name looks likely; skip the question only if the user already named the file, or gave a `figma.com/design/<key>/…` link whose key is in the list.
+- Then add `file=<key>` to every `/run` for the rest of the task (or `file=<id>` when a file has no `key`).
+
+Every outcome names the file the script ran in — `"file": {"id", "name"}` — so say which file you changed when you report back. If a later run answers `409 choose_file`, the file was closed or its plugin reopened (which gives it a new id): pick the same name from the new `files` list, or ask again if it is gone.
 
 ## Run a script
 
@@ -13,15 +28,16 @@ Executes arbitrary Plugin API scripts against the Figma file the user currently 
 cat > /tmp/my-script.js <<'EOF'
 return { pages: figma.root.children.map(p => p.name) };
 EOF
-curl -sS --noproxy '*' --data-binary @/tmp/my-script.js 'http://127.0.0.1:3055/run?wait=90'
+curl -sS --noproxy '*' --data-binary @/tmp/my-script.js 'http://127.0.0.1:3055/run?wait=90&file=AbC123xYz'
 ```
 
-The response is JSON:
+Without `file`, the script runs in the only open file, and is refused when several are open. The response is JSON:
 
 | HTTP | Body | Meaning |
 |---|---|---|
-| 200 | `{"ok": true, "result": …, "ms": …}` | The script's return value. Screenshots arrive as PNG file paths — `Read` them. |
-| 422 | `{"ok": false, "error", "stack"}` | The script threw. Nothing in the file changed. |
+| 200 | `{"ok": true, "result": …, "ms": …, "file": …}` | The script's return value. Screenshots arrive as PNG file paths — `Read` them. |
+| 422 | `{"ok": false, "error", "stack", "file": …}` | The script threw. Nothing in the file changed. |
+| 409 | `"state": "choose_file"`, `"files": […]` | Several files are open and the script named none, or `file` matched none or several of them. Nothing ran. Choose as in *Pick the file first*. |
 | 504 | `"state": "expired"` | The Figma plugin never picked the script up; it was discarded. See below. |
 | 504 | `"state": "running"` | Still executing. Keep waiting: `curl -sS --noproxy '*' 'http://127.0.0.1:3055/result?id=<id>&wait=90'` — it returns the outcome, or `{"pending": true}` if still running. |
 
@@ -37,7 +53,7 @@ Requests to localhost may need the command sandbox disabled.
 
   On Windows, point the user to https://marionette.otimififi.site.
 - **504 with `"state": "expired"`** → the app is up but the Figma plugin is not connected. Ask the user to run it in Figma desktop: *Plugins → Development → Marionette*, and leave its panel open. First time only: in the Marionette window's **Setup** section, click **Add to Figma** (it restarts Figma once).
-- Check any time: `curl -sS --noproxy '*' http://127.0.0.1:3055/health` → `plugin_connected`.
+- Check any time: `curl -sS --noproxy '*' http://127.0.0.1:3055/health` → `files` (empty when the plugin is not running anywhere).
 
 Never ask the user to start a server or run a terminal command — the app window is the whole setup.
 

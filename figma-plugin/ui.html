@@ -12,6 +12,9 @@
   const SERVER = "http://127.0.0.1:3055";
   // Written by the Marionette app when it extracts this plugin.
   const HEADERS = { "X-Marionette-Token": "__MARIONETTE_TOKEN__" };
+  // Tells this file's copy of the plugin apart from those in other files.
+  const PLUGIN = Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) => b.toString(16).padStart(2, "0")).join("");
+  let file = null; // {name, key, page}, from code.js
   let current = null; // id of the script being run, if any
   let inflight = false;
   let done = 0;
@@ -24,15 +27,16 @@
   };
 
   async function tick() {
-    if (inflight) return;
+    if (inflight || !file) return;
     inflight = true;
+    const q = "/pull?" + new URLSearchParams({ plugin: PLUGIN, file: file.name, key: file.key, page: file.page });
     try {
       if (current) {
         // Heartbeat, so the app knows the script is still running.
-        await fetch(SERVER + "/pull?busy=" + current, { headers: HEADERS });
+        await fetch(SERVER + q + "&busy=" + current, { headers: HEADERS });
         return;
       }
-      const r = await fetch(SERVER + "/pull", { headers: HEADERS });
+      const r = await fetch(SERVER + q, { headers: HEADERS });
       const j = await r.json();
       if (!r.ok) {
         setState(false, "Refused by the Marionette app", j.error || "status " + r.status);
@@ -52,6 +56,10 @@
 
   onmessage = async (e) => {
     const m = e.data.pluginMessage;
+    if (m && m.type === "file") {
+      file = m;
+      return;
+    }
     if (!m || m.type !== "result") return;
     try {
       await fetch(SERVER + "/result?id=" + encodeURIComponent(m.id), {
@@ -64,5 +72,6 @@
     done++;
   };
 
+  parent.postMessage({ pluginMessage: { type: "hello" } }, "*");
   setInterval(tick, 500);
 </script>
